@@ -393,11 +393,11 @@
 class D1Client {
   constructor() {
     this.WORKER_URL = "https://des-api.renealejandrovalenzuela.workers.dev";
-    this.TOKEN = "des-api-token-2026";
+    this.session = localStorage.getItem("des_session") || "";  // token de sesión del usuario
     this.ready = false;                 // true solo tras restore() exitoso
     this.rawSet = localStorage.setItem.bind(localStorage);
     this.rawRemove = localStorage.removeItem.bind(localStorage);
-    this.SKIP = new Set(["des_anthropic_key", "__des_test__", "des_d1_rev"]);
+    this.SKIP = new Set(["des_anthropic_key", "__des_test__", "des_d1_rev", "des_session", "des_user_cache"]);
     this._pending = {};
     this._timers = {};
   }
@@ -410,7 +410,7 @@ class D1Client {
   // ---- Traer TODOS los datos de la nube y volcarlos a localStorage ----
   async restore() {
     const resp = await fetch(`${this.WORKER_URL}/restore`, {
-      headers: { "x-api-token": this.TOKEN }
+      headers: { "x-session": this.session }
     });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const out = await resp.json();
@@ -450,7 +450,7 @@ class D1Client {
     try {
       const resp = await fetch(`${this.WORKER_URL}/sync`, {
         method: "POST",
-        headers: { "x-api-token": this.TOKEN, "Content-Type": "application/json" },
+        headers: { "x-session": this.session, "Content-Type": "application/json" },
         body: JSON.stringify({ k, v })
       });
       if (resp.ok) { return true; }
@@ -486,7 +486,7 @@ class D1Client {
   async importBackup(backupData) {
     const resp = await fetch(`${this.WORKER_URL}/import`, {
       method: "POST",
-      headers: { "x-api-token": this.TOKEN, "Content-Type": "application/json" },
+      headers: { "x-session": this.session, "Content-Type": "application/json" },
       body: JSON.stringify(backupData)
     });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -520,33 +520,219 @@ localStorage.setItem = function (k, v) {
   catch (e) {}
 };
 
-/* ---- Arranque: traer datos de la nube ANTES de usar la app ---- */
-(async function d1Boot() {
-  console.log("D1: conectando...");
-  try {
-    const { n, changed } = await d1Client.restore();
-    // Si la nube tenía datos más nuevos, recargar UNA vez para que la app
-    // (que lee localStorage al inicio) los tome bien.
-    if (changed && !sessionStorage.getItem("__des_d1_boot")) {
-      sessionStorage.setItem("__des_d1_boot", "1");
-      location.reload();
-      return;
+/* =========================================================================
+   DES · Autenticación, sesión y permisos (frontend)
+   - Login / crear-admin la primera vez.
+   - La sesión se guarda y dura (se queda iniciada).
+   - Permisos por sección: oculta pestañas y botones de edición según el usuario.
+   - Pantalla de administración de usuarios (solo admin).
+   ========================================================================= */
+const SECCIONES = [
+  ["clientes","Clientes"],["catalogo","Catálogo / Precios"],["cotizaciones","Ventas"],
+  ["ventas","Proyectos"],["finanzas","Finanzas"],["tramite","Trámite"],
+  ["archivos","Archivos"],["tools","Tools"]
+];
+function desEsc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
+function permSelectHTML(sec,val){
+  var opts=[["none","—"],["ver","Ver"],["editar","Editar"]];
+  return '<select data-sec="'+sec+'" style="font-size:11px;padding:2px 4px;border:1px solid #cbd5e1;border-radius:6px;margin-top:2px">'
+    +opts.map(function(o){return '<option value="'+o[0]+'"'+(o[0]===(val||"none")?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select>';
+}
+function desApi(path, opts){
+  opts=opts||{};
+  var h=Object.assign({}, opts.headers||{});
+  if(d1Client.session) h["x-session"]=d1Client.session;
+  if(opts.body) h["Content-Type"]="application/json";
+  return fetch(d1Client.WORKER_URL+path,{method:opts.method||"GET",headers:h,body:opts.body?JSON.stringify(opts.body):undefined})
+    .then(async function(r){ var j=null; try{j=await r.json();}catch(e){} return {status:r.status, ok:r.ok, j:j}; });
+}
+
+/* ---- Estilos del login y del control de edición ---- */
+(function(){
+  var st=document.createElement("style");
+  st.textContent=
+  "#desAuth{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;background:#0d1b2a;font-family:system-ui,sans-serif}"
+  +"#desAuth .box{background:#fff;border-radius:14px;padding:26px 24px;width:min(360px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.4)}"
+  +"#desAuth h2{margin:0 0 4px;font-size:19px;color:#11324f}#desAuth p{margin:0 0 14px;font-size:12.5px;color:#6b7c8f}"
+  +"#desAuth label{display:block;font-size:12px;font-weight:700;color:#334155;margin:10px 0 4px}"
+  +"#desAuth input{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #cbd5e1;border-radius:9px;font-size:14px}"
+  +"#desAuth button{width:100%;margin-top:16px;padding:11px;border:none;border-radius:9px;background:#1f78d1;color:#fff;font-size:14px;font-weight:800;cursor:pointer}"
+  +"#desAuth .err{color:#c0392b;font-size:12.5px;margin-top:10px;min-height:16px}"
+  +"body[data-edit=\"off\"] .admin-only{display:none !important}"
+  +".des-userbtn{cursor:pointer;background:rgba(255,255,255,.16);border:none;color:#fff;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;margin-left:6px}"
+  +"#desUsersModal{position:fixed;inset:0;z-index:100001;display:none;align-items:flex-start;justify-content:center;background:rgba(8,18,30,.55);overflow:auto;padding:24px}"
+  +"#desUsersModal.show{display:flex}#desUsersModal .panel{background:#fff;border-radius:14px;padding:22px;width:min(760px,96vw)}";
+  (document.head||document.documentElement).appendChild(st);
+})();
+
+const DESAuth = {
+  _cacheUser:function(u){ try{ d1Client.rawSet("des_user_cache", JSON.stringify(u)); }catch(e){} },
+  _cachedUser:function(){ try{ return JSON.parse(localStorage.getItem("des_user_cache")||"null"); }catch(e){ return null; } },
+  _save:function(j){ d1Client.session=j.token; d1Client.rawSet("des_session", j.token); window.DES_USER=j.user; this._cacheUser(j.user); },
+  logout:function(){ desApi("/logout",{method:"POST"}).catch(function(){}); d1Client.rawRemove("des_session"); d1Client.rawRemove("des_user_cache"); sessionStorage.removeItem("__des_d1_boot"); location.reload(); },
+
+  async ensure(){
+    if(d1Client.session){
+      var me=null; try{ me=await desApi("/me"); }catch(e){ me=null; }
+      if(me && me.ok && me.j && me.j.user){ window.DES_USER=me.j.user; this._cacheUser(me.j.user); return true; }
+      if(me && me.status===401){ d1Client.session=""; d1Client.rawRemove("des_session"); }
+      else { var c=this._cachedUser(); if(c){ window.DES_USER=c; console.warn("Modo offline: sesión guardada"); return true; } }
     }
-    sessionStorage.setItem("__des_d1_boot", "1");
-    d1Client.ready = true;                 // a partir de aquí, los guardados sí suben
-    if (n === 0) { await d1Client.seedFromLocal(); }  // primera vez: sembrar nube
-    window.dispatchEvent(new CustomEvent("d1-ready"));
-    console.log("✓ D1: listo (sincronización activa)");
-  } catch (e) {
-    // Sin conexión a la nube: la app sigue funcionando con datos locales,
-    // pero NO sincroniza (para no sobreescribir la nube con algo incompleto).
-    console.error("D1: no se pudo conectar. Modo local (sin sincronizar).", e);
-    if (typeof toast === "function") {
-      try { toast("Sin conexión con la nube. Tus cambios no se guardarán en línea hasta recargar.", true); } catch (_) {}
+    var hasUsers=true;
+    try{ var s=await desApi("/status"); if(s.ok && s.j) hasUsers=!!s.j.hasUsers; }catch(e){}
+    return hasUsers ? this.showLogin() : this.showSetup();
+  },
+
+  _form:function(title, sub, btn, handler){
+    return new Promise(function(resolve){
+      var ov=document.createElement("div"); ov.id="desAuth";
+      ov.innerHTML='<div class="box"><h2>'+title+'</h2><p>'+sub+'</p>'
+        +'<label>Usuario</label><input id="desU" autocomplete="username">'
+        +'<label>Contraseña</label><input id="desP" type="password" autocomplete="current-password">'
+        +'<button id="desGo">'+btn+'</button><div class="err" id="desErr"></div></div>';
+      (document.body||document.documentElement).appendChild(ov);
+      var go=ov.querySelector("#desGo"), eu=ov.querySelector("#desU"), ep=ov.querySelector("#desP"), er=ov.querySelector("#desErr");
+      async function submit(){
+        er.textContent=""; go.disabled=true; go.textContent="…";
+        try{
+          var ok=await handler(eu.value.trim(), ep.value, function(m){ er.textContent=m; });
+          if(ok===true){ ov.remove(); resolve(true); return; }
+        }catch(e){ er.textContent="Error de conexión. Reintenta."; }
+        go.disabled=false; go.textContent=btn;
+      }
+      go.addEventListener("click",submit);
+      ep.addEventListener("keydown",function(e){ if(e.key==="Enter") submit(); });
+      try{ eu.focus(); }catch(e){}
+    });
+  },
+  showLogin:function(){
+    var self=this;
+    return this._form("Iniciar sesión","Ingresa con tu usuario y contraseña.","Entrar", async function(u,p,setErr){
+      if(!u||!p){ setErr("Completa usuario y contraseña"); return false; }
+      var r=await desApi("/login",{method:"POST",body:{username:u,password:p}});
+      if(r.ok && r.j && r.j.token){ self._save(r.j); return true; }
+      setErr((r.j&&r.j.error)||"No se pudo iniciar sesión"); return false;
+    });
+  },
+  showSetup:function(){
+    var self=this;
+    return this._form("Crear administrador","Primera vez: crea tu cuenta de administrador.","Crear", async function(u,p,setErr){
+      if(u.length<3||p.length<4){ setErr("Usuario mín. 3 y contraseña mín. 4"); return false; }
+      var r=await desApi("/setup",{method:"POST",body:{username:u,password:p}});
+      if(r.ok && r.j && r.j.token){ self._save(r.j); return true; }
+      setErr((r.j&&r.j.error)||"No se pudo crear"); return false;
+    });
+  },
+
+  applyPerms:function(){
+    var u=window.DES_USER||{}, admin=!!u.is_admin, perms=u.perms||{};
+    var first=null;
+    SECCIONES.forEach(function(s){
+      var k=s[0], tab=document.querySelector('.tab[data-tab="'+k+'"]'); if(!tab) return;
+      var lvl=admin?"editar":(perms[k]||"none");
+      if(lvl==="none"){ tab.style.display="none"; } else { tab.style.display=""; if(!first) first=k; }
+    });
+    function curSec(){ var a=document.querySelector('.tab.active'); return a?a.dataset.tab:"clientes"; }
+    var cur=curSec(), curLvl=admin?"editar":(perms[cur]||"none");
+    if(curLvl==="none" && first){ var t=document.querySelector('.tab[data-tab="'+first+'"]'); if(t) t.click(); }
+    function setEdit(){ var s=curSec(); var lvl=admin?"editar":(perms[s]||"none"); document.body.setAttribute("data-edit", lvl==="editar"?"on":"off"); }
+    document.querySelectorAll('.tab[data-tab]').forEach(function(t){ t.addEventListener('click',function(){ setTimeout(setEdit,0); }); });
+    setEdit();
+    this.injectHeader(admin);
+  },
+  injectHeader:function(admin){
+    var hdr=document.querySelector("header"); if(!hdr || document.getElementById("desSessBar")) return;
+    var wrap=document.createElement("div"); wrap.id="desSessBar"; wrap.style.cssText="margin-left:auto;display:flex;align-items:center;gap:2px";
+    var who=document.createElement("span"); who.style.cssText="color:#fff;font-size:12px;opacity:.9"; who.textContent="👤 "+((window.DES_USER||{}).username||"");
+    wrap.appendChild(who);
+    if(admin){ var ub=document.createElement("button"); ub.className="des-userbtn"; ub.textContent="Usuarios"; ub.onclick=function(){ DESAuth.openUsers(); }; wrap.appendChild(ub); }
+    var lb=document.createElement("button"); lb.className="des-userbtn"; lb.textContent="Salir"; lb.onclick=function(){ DESAuth.logout(); }; wrap.appendChild(lb);
+    hdr.appendChild(wrap);
+  },
+
+  async openUsers(){
+    var modal=document.getElementById("desUsersModal");
+    if(!modal){
+      modal=document.createElement("div"); modal.id="desUsersModal";
+      var panel=document.createElement("div"); panel.className="panel";
+      panel.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h2 style="margin:0;font-size:18px;color:#11324f">Usuarios y permisos</h2><button id="desUClose" class="des-userbtn" style="background:#475569">Cerrar</button></div><div id="desUList" style="font-size:13px;color:#475569">Cargando…</div><hr style="margin:16px 0;border:none;border-top:1px solid #e2e8f0"><h3 style="font-size:14px;color:#11324f;margin:0 0 8px">➕ Crear usuario</h3><div id="desUNew"></div>';
+      modal.appendChild(panel); document.body.appendChild(modal);
+      panel.querySelector("#desUClose").onclick=function(){ modal.classList.remove("show"); };
     }
-  } finally {
-    d1HideOverlay();
+    modal.classList.add("show");
+    this._renderNewForm(document.getElementById("desUNew"));
+    await this._loadUsers();
+  },
+  async _loadUsers(){
+    var box=document.getElementById("desUList"); if(!box) return;
+    var r=await desApi("/users");
+    if(!r.ok){ box.textContent=(r.j&&r.j.error)||"No se pudo cargar"; return; }
+    box.innerHTML=""; var self=this;
+    (r.j.users||[]).forEach(function(u){ box.appendChild(self._userRow(u)); });
+  },
+  _userRow:function(u){
+    var me=(window.DES_USER||{}), self=this, perms=u.perms||{};
+    var d=document.createElement("div");
+    d.style.cssText="border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px";
+    var selects=SECCIONES.map(function(s){ return '<label style="display:inline-flex;flex-direction:column;font-size:10.5px;color:#475569;margin:2px 8px 2px 0">'+s[1]+permSelectHTML(s[0],perms[s[0]])+'</label>'; }).join("");
+    d.innerHTML='<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><strong style="font-size:14px;color:#11324f">'+desEsc(u.username)+'</strong>'
+      +'<label style="font-size:12px"><input type="checkbox" class="uAdmin"'+(u.is_admin?" checked":"")+'> Admin</label>'
+      +'<label style="font-size:12px"><input type="checkbox" class="uActive"'+(u.active?" checked":"")+'> Activo</label></div>'
+      +'<div class="uPerms" style="margin:8px 0;display:'+(u.is_admin?"none":"flex")+';flex-wrap:wrap">'+selects+'</div>'
+      +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input class="uPass" type="text" placeholder="Nueva contraseña (opcional)" style="font-size:12px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:7px;flex:1;min-width:160px">'
+      +'<button class="des-userbtn uSave" style="background:#1f78d1">Guardar</button>'
+      +(u.id===me.id?"":'<button class="des-userbtn uDel" style="background:#c0392b">Eliminar</button>')+'</div>';
+    var adminCb=d.querySelector(".uAdmin"), permsBox=d.querySelector(".uPerms");
+    adminCb.onchange=function(){ permsBox.style.display=adminCb.checked?"none":"flex"; };
+    d.querySelector(".uSave").onclick=async function(){
+      var perms={}; d.querySelectorAll(".uPerms select").forEach(function(sel){ perms[sel.dataset.sec]=sel.value; });
+      var body={id:u.id, is_admin:adminCb.checked, active:d.querySelector(".uActive").checked, perms:perms};
+      var pw=d.querySelector(".uPass").value; if(pw) body.password=pw;
+      var r=await desApi("/users/update",{method:"POST",body:body});
+      if(r.ok){ if(typeof toast==="function") toast("Usuario actualizado ✓"); self._loadUsers(); } else alert((r.j&&r.j.error)||"Error");
+    };
+    var del=d.querySelector(".uDel");
+    if(del) del.onclick=async function(){ if(!confirm("¿Eliminar a "+u.username+"?")) return; var r=await desApi("/users/delete",{method:"POST",body:{id:u.id}}); if(r.ok){ self._loadUsers(); } else alert((r.j&&r.j.error)||"Error"); };
+    return d;
+  },
+  _renderNewForm:function(box){
+    if(!box) return; var self=this;
+    var selects=SECCIONES.map(function(s){ return '<label style="display:inline-flex;flex-direction:column;font-size:10.5px;color:#475569;margin:2px 8px 2px 0">'+s[1]+permSelectHTML(s[0],"none")+'</label>'; }).join("");
+    box.innerHTML='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px"><input id="nU" placeholder="Usuario" style="font-size:13px;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px"><input id="nP" type="text" placeholder="Contraseña" style="font-size:13px;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px"><label style="font-size:12px"><input type="checkbox" id="nAdmin"> Admin</label></div>'
+      +'<div id="nPerms" style="display:flex;flex-wrap:wrap;margin-bottom:8px">'+selects+'</div>'
+      +'<button id="nCreate" class="des-userbtn" style="background:#0a7d4f">Crear usuario</button>';
+    var adminCb=box.querySelector("#nAdmin"), permsBox=box.querySelector("#nPerms");
+    adminCb.onchange=function(){ permsBox.style.display=adminCb.checked?"none":"flex"; };
+    box.querySelector("#nCreate").onclick=async function(){
+      var un=box.querySelector("#nU").value.trim(), p=box.querySelector("#nP").value;
+      if(un.length<3||p.length<4){ alert("Usuario mín. 3 y contraseña mín. 4"); return; }
+      var perms={}; box.querySelectorAll("#nPerms select").forEach(function(sel){ perms[sel.dataset.sec]=sel.value; });
+      var r=await desApi("/users/create",{method:"POST",body:{username:un,password:p,is_admin:adminCb.checked,perms:perms}});
+      if(r.ok){ if(typeof toast==="function") toast("Usuario creado ✓"); box.querySelector("#nU").value=""; box.querySelector("#nP").value=""; self._loadUsers(); } else alert((r.j&&r.j.error)||"Error");
+    };
   }
+};
+window.DESAuth = DESAuth;
+
+/* ---- Arranque: login -> traer datos -> aplicar permisos ---- */
+(async function desBoot(){
+  console.log("DES: iniciando…");
+  try{
+    var ok=await DESAuth.ensure();   // espera al login si hace falta
+    if(!ok){ d1HideOverlay(); return; }
+  }catch(e){ console.error("Auth:", e); }
+  try{
+    const r=await d1Client.restore();
+    if(r.changed && !sessionStorage.getItem("__des_d1_boot")){ sessionStorage.setItem("__des_d1_boot","1"); location.reload(); return; }
+    sessionStorage.setItem("__des_d1_boot","1");
+    d1Client.ready=true;
+    if(r.n===0) await d1Client.seedFromLocal();
+    console.log("✓ D1: listo (sincronización activa)");
+  }catch(e){ console.warn("D1 restore falló (¿sin conexión?):", e); }
+  if(document.readyState==="loading"){ await new Promise(function(res){ document.addEventListener("DOMContentLoaded",res,{once:true}); }); }
+  try{ DESAuth.applyPerms(); }catch(e){ console.warn("applyPerms:", e); }
+  window.dispatchEvent(new CustomEvent("d1-ready"));
+  d1HideOverlay();
 })();
 </script>
 </head>
@@ -6265,12 +6451,12 @@ function fileToDataURL(file){
    solo queda la "key" (texto corto), no la imagen.
    ===================================================================== */
 const R2={
-  url:"https://des-r2.renealejandrovalenzuela.workers.dev",
-  token:"des_1eebefae30b366fe09c6b3c1a9582f22a4b0dae9"
+  url:"https://des-r2.renealejandrovalenzuela.workers.dev"
 };
-function r2On(){ return !!(R2.url && R2.token); }
+// R2 ahora usa la SESIÓN del usuario (no un token fijo público).
+function r2On(){ return !!(R2.url && (window.d1Client && d1Client.session)); }
 // URL directa para mostrar/descargar (sirve en <img>, <iframe> y enlaces)
-function r2Url(key){ return `${R2.url}/file?key=${encodeURIComponent(key)}&t=${encodeURIComponent(R2.token)}`; }
+function r2Url(key){ return `${R2.url}/file?key=${encodeURIComponent(key)}&s=${encodeURIComponent((window.d1Client&&d1Client.session)||"")}`; }
 // Fuente mostrable de un objeto que puede tener dataUrl (viejo) o r2Key (nuevo)
 function fileSrc(o){ if(!o) return ""; if(o.dataUrl) return o.dataUrl; if(o.imagenData) return o.imagenData; if(o.r2Key) return r2Url(o.r2Key); return ""; }
 // Sube un File/Blob (o un dataURL) a R2 y devuelve la key
@@ -6283,7 +6469,7 @@ async function r2Upload(data, name, type, folder){
   const safeName=encodeURIComponent(name||"archivo");
   const resp=await fetch(`${R2.url}/upload?folder=${encodeURIComponent(folder||"bauchers")}`,{
     method:"POST",
-    headers:{ "X-App-Token":R2.token, "X-File-Name":safeName, "Content-Type":ct },
+    headers:{ "x-session":(window.d1Client&&d1Client.session)||"", "X-File-Name":safeName, "Content-Type":ct },
     body:blob
   });
   if(!resp.ok){ let m="HTTP "+resp.status; try{const e=await resp.json();m=e.error||m;}catch(_){ } throw new Error(m); }
@@ -6293,7 +6479,7 @@ async function r2Upload(data, name, type, folder){
 // Borra un archivo de R2 (mejor esfuerzo, no rompe si falla)
 async function r2Delete(key){
   if(!key||!r2On()) return;
-  try{ await fetch(`${R2.url}/file?key=${encodeURIComponent(key)}`,{method:"DELETE",headers:{"X-App-Token":R2.token}}); }catch(e){}
+  try{ await fetch(`${R2.url}/file?key=${encodeURIComponent(key)}`,{method:"DELETE",headers:{"x-session":(window.d1Client&&d1Client.session)||""}}); }catch(e){}
 }
 // ¿Algún otro registro (biblioteca o trámite) usa este objeto de R2? Evita borrar uno compartido.
 function r2KeyEnUso(key, ig){
