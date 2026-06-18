@@ -642,11 +642,11 @@ const DESAuth = {
   },
   injectHeader:function(admin){
     var hdr=document.querySelector("header"); if(!hdr || document.getElementById("desSessBar")) return;
-    var wrap=document.createElement("div"); wrap.id="desSessBar"; wrap.style.cssText="margin-left:auto;display:flex;align-items:center;gap:2px";
-    var who=document.createElement("span"); who.style.cssText="color:#fff;font-size:12px;opacity:.9"; who.textContent="👤 "+((window.DES_USER||{}).username||"");
+    var wrap=document.createElement("div"); wrap.id="desSessBar"; wrap.style.cssText="margin-left:auto;display:flex;align-items:center;gap:6px";
+    var who=document.createElement("span"); who.style.cssText="color:#0c365f;font-size:12px;font-weight:700"; who.textContent="👤 "+((window.DES_USER||{}).username||"");
     wrap.appendChild(who);
-    if(admin){ var ub=document.createElement("button"); ub.className="des-userbtn"; ub.textContent="Usuarios"; ub.onclick=function(){ DESAuth.openUsers(); }; wrap.appendChild(ub); }
-    var lb=document.createElement("button"); lb.className="des-userbtn"; lb.textContent="Salir"; lb.onclick=function(){ DESAuth.logout(); }; wrap.appendChild(lb);
+    if(admin){ var ub=document.createElement("button"); ub.className="des-userbtn"; ub.style.cssText="background:#1f78d1;color:#fff;margin-left:0"; ub.textContent="Usuarios"; ub.onclick=function(){ DESAuth.openUsers(); }; wrap.appendChild(ub); }
+    var lb=document.createElement("button"); lb.className="des-userbtn"; lb.style.cssText="background:#c0392b;color:#fff;margin-left:0"; lb.textContent="Salir"; lb.onclick=function(){ DESAuth.logout(); }; wrap.appendChild(lb);
     hdr.appendChild(wrap);
   },
 
