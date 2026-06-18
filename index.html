@@ -3412,7 +3412,7 @@ function archiveEdit(c){
     const row=document.createElement("div");row.className="docrow";
     row.innerHTML=`<span>📄 ${esc(c.archivoPdf.name)} <em style="color:var(--muted)">(guardado)</em></span>`;
     const v=document.createElement("button");v.type="button";v.className="btn ghost sm";
-    v.textContent="👁 Ver";v.onclick=()=>openFile(c.archivoPdf.fid);
+    v.textContent="👁 Ver";v.onclick=()=>openProdDoc(c.archivoPdf);
     row.appendChild(v);docs.appendChild(row);
     hint.className="hint ok";hint.textContent="✓ PDF cargado";
     btn.textContent="🔄 Cambiar PDF";
@@ -3473,9 +3473,18 @@ function archiveSubmit(e){
     toast(editing?"Cotización actualizada ✓":"Cotización archivada ✓");
   }
   if(file){
-    const fid="cot-arch-"+(aEditId||id);
-    filePut(fid,file).then(()=>{cot.archivoPdf={fid,name:file.name};finish();})
-      .catch(()=>{finish();toast("PDF no guardado",true);});
+    (async()=>{
+      try{
+        if(typeof r2On==="function" && r2On()){
+          const key=await r2Upload(file, file.name, file.type||"application/pdf", "cotizaciones");
+          cot.archivoPdf={r2Key:key,name:file.name};            // PDF en la nube (R2)
+        }else{
+          const fid="cot-arch-"+(aEditId||id);
+          await filePut(fid,file); cot.archivoPdf={fid,name:file.name};  // respaldo local
+        }
+      }catch(e){ toast("PDF no se pudo guardar en la nube",true); }
+      finish();
+    })();
   }else{
     finish();
   }
@@ -4020,7 +4029,7 @@ function qdetail(id){
       <div class="totrow grand"><span>TOTAL</span><span class="v">${moneyGTQ(c.archivada?(c.totalManual||0):(T.total||0))}</span></div>
     </div>
     ${c.notas?`<div class="note">${esc(c.notas)}</div>`:""}
-    ${c.archivoPdf?`<div style="margin-top:8px"><a class="link" href="javascript:void(0)" onclick="openFile('${c.archivoPdf.fid}')">📄 ${esc(c.archivoPdf.name)}</a></div>`:""}
+    ${c.archivoPdf?`<div style="margin-top:8px">${c.archivoPdf.r2Key?`<a class="link" target="_blank" rel="noopener" href="${r2Url(c.archivoPdf.r2Key)}">📄 ${esc(c.archivoPdf.name)}</a>`:`<a class="link" href="javascript:void(0)" onclick="openFile('${c.archivoPdf.fid}')">📄 ${esc(c.archivoPdf.name)}</a>`}</div>`:""}
     <div class="actions" style="margin-top:16px">
       ${c.archivada?"":`<button class="btn primary" onclick="cotPrint('${c.id}')">🖨 Generar PDF</button>`}
       <button class="btn ghost admin-only" onclick="qedit('${c.id}')">✏️ Editar</button>
@@ -5541,13 +5550,13 @@ function vMovRender(cotId){
 
   // Pending cuentas chips for the form
   const pendingCuentas=cuentas.filter(c=>{
-    const pagado=movs.filter(m=>m.cuentaId===c.id).reduce((a,m)=>a+(parseFloat(m.entrada)||0)+(parseFloat(m.salida)||0),0);
+    const pagado=movs.filter(m=>m.cuentaId===c.id && m.estado==='completado').reduce((a,m)=>a+(parseFloat(m.entrada)||0)+(parseFloat(m.salida)||0),0);
     return pagado<(parseFloat(c.totalAcordado)||0);
   });
   let cuentaChipsHTML="";
   if(pendingCuentas.length){
     const chips=pendingCuentas.map(c=>{
-      const pagado=movs.filter(m=>m.cuentaId===c.id).reduce((a,m)=>a+(parseFloat(m.entrada)||0)+(parseFloat(m.salida)||0),0);
+      const pagado=movs.filter(m=>m.cuentaId===c.id && m.estado==='completado').reduce((a,m)=>a+(parseFloat(m.entrada)||0)+(parseFloat(m.salida)||0),0);
       const pendiente=(parseFloat(c.totalAcordado)||0)-pagado;
       const isEntrada=c.tipo==="entrada";
       const dot=isEntrada?"🟠":"🔴";
@@ -5565,7 +5574,7 @@ function vMovRender(cotId){
   let cuentasResumenHTML="";
   if(cuentas.length){
     const rows=cuentas.map(c=>{
-      const pagado=movs.filter(m=>m.cuentaId===c.id).reduce((a,m)=>a+(parseFloat(m.entrada)||0)+(parseFloat(m.salida)||0),0);
+      const pagado=movs.filter(m=>m.cuentaId===c.id && m.estado==='completado').reduce((a,m)=>a+(parseFloat(m.entrada)||0)+(parseFloat(m.salida)||0),0);
       const total=parseFloat(c.totalAcordado)||0;
       const pendiente=Math.max(0,total-pagado);
       const saldado=pendiente<=0;
@@ -8360,9 +8369,11 @@ function tramAutoCotPdf(t){
   const cot=cotizaciones.find(x=>x.id===t.cotId);
   if(cot && cot.archivoPdf) pdf=cot.archivoPdf;
   if(!pdf){ const any=cotizaciones.find(x=>x.clienteId===t.clienteId && x.archivoPdf); if(any) pdf=any.archivoPdf; }
-  if(pdf && pdf.fid){
+  if(pdf && (pdf.r2Key || pdf.fid)){
     t.docs=t.docs||{};
-    t.docs.cotizacion={ idbFid:pdf.fid, name:(pdf.name||"cotizacion.pdf"), type:"application/pdf", autoCot:true };
+    t.docs.cotizacion = pdf.r2Key
+      ? { r2Key:pdf.r2Key, name:(pdf.name||"cotizacion.pdf"), type:"application/pdf", autoCot:true }
+      : { idbFid:pdf.fid, name:(pdf.name||"cotizacion.pdf"), type:"application/pdf", autoCot:true };
     tramSave();
   }
 }
