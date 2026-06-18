@@ -4,156 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DES · Gestor de Clientes</title>
-<script>
-// ============================================================================
-// DES API LAYER - Sincronización con D1 vía Worker
-// ============================================================================
-// Intercepta localStorage y sincroniza datos con Cloudflare D1
-// Estructura: localStorage → memoryCache + IndexedDB + Worker → D1
-
-const API_URL = 'https://des-api.renealejandrovalenzuela.workers.dev';
-const API_TOKEN = 'des-api-token-2026';
-
-let db;
-const memoryCache = {};
-
-// ============================================================================
-// IndexedDB Setup
-// ============================================================================
-
-const initDB = () => {
-  return new Promise((resolve) => {
-    const req = indexedDB.open('des-cache', 1);
-    
-    req.onupgradeneeded = (e) => {
-      const database = e.target.result;
-      if (!database.objectStoreNames.contains('cache')) {
-        database.createObjectStore('cache');
-      }
-    };
-    
-    req.onsuccess = (e) => {
-      db = e.target.result;
-      console.log('✓ IndexedDB initialized for offline persistence');
-      resolve();
-    };
-    
-    req.onerror = () => {
-      console.warn('IndexedDB initialization failed, continuing without offline cache');
-      resolve();
-    };
-  });
-};
-
-const saveToIDB = async (key, value) => {
-  if (!db) return;
-  try {
-    const tx = db.transaction('cache', 'readwrite');
-    const store = tx.objectStore('cache');
-    store.put(value, key);
-  } catch (e) {
-    console.warn('IDB write failed:', key);
-  }
-};
-
-// ============================================================================
-// Worker Synchronization
-// ============================================================================
-
-const syncWithWorker = async (key, value) => {
-  // No sincronizar si value está vacío o es array vacío
-  if (!value || value === '[]' || value === '{}') {
-    return;
-  }
-  
-  try {
-    const response = await fetch(`${API_URL}/sync`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Token': API_TOKEN
-      },
-      body: JSON.stringify({ key, value })
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      console.warn(`Sync error (${response.status}):`, key, error);
-      return false;
-    }
-    
-    const result = await response.json();
-    console.log(`✓ Synced ${result.table}: ${result.count} items`);
-    return true;
-  } catch (e) {
-    console.warn('Sync failed (offline):', key);
-    return false;
-  }
-};
-
-// ============================================================================
-// localStorage Proxy
-// ============================================================================
-
-const localStorageProxy = {
-  getItem: (key) => {
-    return memoryCache[key] !== undefined ? memoryCache[key] : null;
-  },
-  
-  setItem: (key, value) => {
-    // Guardar en memoria
-    memoryCache[key] = value;
-    
-    // Guardar en IndexedDB (offline persistence)
-    saveToIDB(key, value);
-    
-    // Sincronizar con Worker (background, no-blocking)
-    if (key.startsWith('des_')) {
-      syncWithWorker(key, value).catch(e => {
-        console.warn('Unexpected sync error:', e);
-      });
-    }
-  },
-  
-  removeItem: (key) => {
-    delete memoryCache[key];
-    saveToIDB(key, null);
-  },
-  
-  clear: () => {
-    Object.keys(memoryCache).forEach(key => {
-      delete memoryCache[key];
-      saveToIDB(key, null);
-    });
-  },
-  
-  key: (index) => {
-    const keys = Object.keys(memoryCache);
-    return keys[index] || null;
-  },
-  
-  get length() {
-    return Object.keys(memoryCache).length;
-  }
-};
-
-// ============================================================================
-// Initialize
-// ============================================================================
-
-Object.defineProperty(window, 'localStorage', {
-  value: localStorageProxy,
-  writable: false,
-  configurable: false
-});
-
-window.addEventListener('DOMContentLoaded', async () => {
-  await initDB();
-  console.log('✓ API Layer initialized - localStorage intercepted with D1 sync');
-});
-
-console.log('DES API Layer loaded - Production Ready');
-</script> 
 <style>
   /* ===== PALETA DES — MISMA BASE QUE LA COTIZACIÓN ===== */
   :root{
@@ -524,6 +374,181 @@ console.log('DES API Layer loaded - Production Ready');
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+/* =========================================================================
+   DES · Cliente de D1 (base de datos SQL en la nube)
+   -------------------------------------------------------------------------
+   Modelo "espejo": la app sigue guardando en localStorage como siempre.
+   Este cliente (1) trae los datos de D1 ANTES de que la app arranque, y
+   (2) engancha localStorage.setItem para que CADA guardado se replique a
+   D1 automáticamente, sin tocar los 56 puntos de guardado de la app.
+
+   Reglas de seguridad de datos:
+   - Solo se sincroniza tras una lectura EXITOSA de la nube (ready=true).
+     Así nunca se sobreescribe la nube con datos vacíos al arrancar.
+   - La API key (des_anthropic_key) NUNCA se sube.
+   - Si la nube tiene datos más nuevos que este navegador, se recarga UNA
+     vez para que la app los lea bien (evita datos a medias en memoria).
+   ========================================================================= */
+class D1Client {
+  constructor() {
+    this.WORKER_URL = "https://des-api.renealejandrovalenzuela.workers.dev";
+    this.TOKEN = "des-api-token-2026";
+    this.ready = false;                 // true solo tras restore() exitoso
+    this.rawSet = localStorage.setItem.bind(localStorage);
+    this.rawRemove = localStorage.removeItem.bind(localStorage);
+    this.SKIP = new Set(["des_anthropic_key", "__des_test__", "des_d1_rev"]);
+    this._pending = {};
+    this._timers = {};
+  }
+
+  // ¿Esta clave debe replicarse a D1?
+  syncable(k) {
+    return typeof k === "string" && k.startsWith("des_") && !this.SKIP.has(k);
+  }
+
+  // ---- Traer TODOS los datos de la nube y volcarlos a localStorage ----
+  async restore() {
+    const resp = await fetch(`${this.WORKER_URL}/restore`, {
+      headers: { "x-api-token": this.TOKEN }
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const out = await resp.json();
+    const data = out && out.data ? out.data : (out || {});
+    let changed = false, n = 0;
+    for (const [k, v] of Object.entries(data)) {
+      n++;
+      const val = (v == null) ? "" : String(v);   // valor crudo (JSON string)
+      if (localStorage.getItem(k) !== val) { this.rawSet(k, val); changed = true; }
+    }
+    console.log(`✓ D1: ${n} clave(s) traídas de la nube` + (changed ? " (hay cambios)" : " (sin cambios)"));
+    return { n, changed };
+  }
+
+  // ---- Sembrar la nube desde este navegador (solo si D1 está vacía) ----
+  async seedFromLocal() {
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (this.syncable(k)) keys.push(k);
+    }
+    if (!keys.length) return 0;
+    console.log(`D1 vacía: subiendo ${keys.length} clave(s) de este equipo a la nube...`);
+    let ok = 0;
+    for (const k of keys) {
+      const v = localStorage.getItem(k);
+      if (v == null) continue;
+      const r = await this._push(k, v);
+      if (r) ok++;
+    }
+    console.log(`✓ D1: ${ok}/${keys.length} clave(s) sembradas en la nube`);
+    return ok;
+  }
+
+  // ---- Envío real de una clave a D1 (devuelve true si ok) ----
+  async _push(k, v) {
+    try {
+      const resp = await fetch(`${this.WORKER_URL}/sync`, {
+        method: "POST",
+        headers: { "x-api-token": this.TOKEN, "Content-Type": "application/json" },
+        body: JSON.stringify({ k, v })
+      });
+      if (resp.ok) { return true; }
+      const err = await resp.json().catch(() => ({}));
+      if (resp.status === 413) {
+        console.warn(`⚠ D1: "${k}" es muy grande para la base (>2MB). Las imágenes deben ir a R2 (usa "Subir bauchers a R2").`, err);
+        if (!this._warnedBig) {
+          this._warnedBig = true;
+          if (typeof toast === "function") toast("Algunas fotos aún están en los datos y no caben en la nube. Ve a Configuración → Subir bauchers a R2.", true);
+        }
+      } else {
+        console.warn(`⚠ D1 sync (${k}):`, resp.status, err);
+      }
+      return false;
+    } catch (e) {
+      console.warn(`⚠ D1 sync error (${k}):`, e);
+      return false;
+    }
+  }
+
+  // ---- Cola con anti-rebote por clave (para guardados del usuario) ----
+  queueSync(k, v) {
+    if (!this.ready || !this.syncable(k)) return;
+    this._pending[k] = v;
+    clearTimeout(this._timers[k]);
+    this._timers[k] = setTimeout(() => {
+      const val = this._pending[k]; delete this._pending[k];
+      if (val != null) this._push(k, val);
+    }, 400);
+  }
+
+  // ---- Importar un respaldo completo a la nube ----
+  async importBackup(backupData) {
+    const resp = await fetch(`${this.WORKER_URL}/import`, {
+      method: "POST",
+      headers: { "x-api-token": this.TOKEN, "Content-Type": "application/json" },
+      body: JSON.stringify(backupData)
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const result = await resp.json();
+    await this.restore();
+    return result;
+  }
+}
+
+/* ---- Overlay de carga (se ve mientras se conecta a la nube) ---- */
+(function () {
+  try {
+    var ov = document.createElement("div");
+    ov.id = "d1Overlay";
+    ov.style.cssText = "position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#0d1b2a;color:#cfe3ff;font:600 15px system-ui,sans-serif;transition:opacity .25s";
+    ov.innerHTML = '<div style="width:42px;height:42px;border:4px solid #1b3a5c;border-top-color:#3aa0ff;border-radius:50%;animation:d1spin 0.8s linear infinite"></div><div>Conectando con la nube…</div><style>@keyframes d1spin{to{transform:rotate(360deg)}}</style>';
+    (document.body || document.documentElement).appendChild(ov);
+  } catch (e) {}
+})();
+function d1HideOverlay() {
+  var ov = document.getElementById("d1Overlay");
+  if (ov) { ov.style.opacity = "0"; setTimeout(function () { ov.remove(); }, 300); }
+}
+
+/* ---- Enganche global de localStorage.setItem -> replica a D1 ---- */
+const d1Client = new D1Client();
+window.d1Client = d1Client;
+localStorage.setItem = function (k, v) {
+  d1Client.rawSet(k, v);          // 1) guardar local como siempre
+  try { d1Client.queueSync(k, v); } // 2) replicar a la nube (si ya está lista)
+  catch (e) {}
+};
+
+/* ---- Arranque: traer datos de la nube ANTES de usar la app ---- */
+(async function d1Boot() {
+  console.log("D1: conectando...");
+  try {
+    const { n, changed } = await d1Client.restore();
+    // Si la nube tenía datos más nuevos, recargar UNA vez para que la app
+    // (que lee localStorage al inicio) los tome bien.
+    if (changed && !sessionStorage.getItem("__des_d1_boot")) {
+      sessionStorage.setItem("__des_d1_boot", "1");
+      location.reload();
+      return;
+    }
+    sessionStorage.setItem("__des_d1_boot", "1");
+    d1Client.ready = true;                 // a partir de aquí, los guardados sí suben
+    if (n === 0) { await d1Client.seedFromLocal(); }  // primera vez: sembrar nube
+    window.dispatchEvent(new CustomEvent("d1-ready"));
+    console.log("✓ D1: listo (sincronización activa)");
+  } catch (e) {
+    // Sin conexión a la nube: la app sigue funcionando con datos locales,
+    // pero NO sincroniza (para no sobreescribir la nube con algo incompleto).
+    console.error("D1: no se pudo conectar. Modo local (sin sincronizar).", e);
+    if (typeof toast === "function") {
+      try { toast("Sin conexión con la nube. Tus cambios no se guardarán en línea hasta recargar.", true); } catch (_) {}
+    }
+  } finally {
+    d1HideOverlay();
+  }
+})();
+</script>
 </head>
 <body>
 <header>
