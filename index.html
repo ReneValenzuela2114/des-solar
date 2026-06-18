@@ -6,34 +6,40 @@
 <title>DES · Gestor de Clientes</title>
 <script>
 // ============================================================================
-// DES API LAYER - localStorage interceptor con IndexedDB cache
+// DES API LAYER - Sincronización con D1 vía Worker
 // ============================================================================
-// Datos en memoria + IndexedDB para offline persistence
-// Sincronización con Worker (próxima fase)
+// Intercepta localStorage y sincroniza datos con Cloudflare D1
+// Estructura: localStorage → memoryCache + IndexedDB + Worker → D1
 
 const API_URL = 'https://des-api.renealejandrovalenzuela.workers.dev';
 const API_TOKEN = 'des-api-token-2026';
 
-const memoryCache = {};
 let db;
+const memoryCache = {};
 
-// Inicializar IndexedDB
+// ============================================================================
+// IndexedDB Setup
+// ============================================================================
+
 const initDB = () => {
   return new Promise((resolve) => {
     const req = indexedDB.open('des-cache', 1);
+    
     req.onupgradeneeded = (e) => {
       const database = e.target.result;
       if (!database.objectStoreNames.contains('cache')) {
         database.createObjectStore('cache');
       }
     };
+    
     req.onsuccess = (e) => {
       db = e.target.result;
-      console.log('✓ IndexedDB initialized');
+      console.log('✓ IndexedDB initialized for offline persistence');
       resolve();
     };
+    
     req.onerror = () => {
-      console.warn('IndexedDB initialization failed');
+      console.warn('IndexedDB initialization failed, continuing without offline cache');
       resolve();
     };
   });
@@ -50,46 +56,64 @@ const saveToIDB = async (key, value) => {
   }
 };
 
-const readFromIDB = async (key) => {
-  if (!db) return null;
-  return new Promise((resolve) => {
-    try {
-      const tx = db.transaction('cache', 'readonly');
-      const store = tx.objectStore('cache');
-      const req = store.get(key);
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => resolve(null);
-    } catch (e) {
-      resolve(null);
-    }
-  });
-};
+// ============================================================================
+// Worker Synchronization
+// ============================================================================
 
-// Reemplazar localStorage globalmente
-const localStorageProxy = {
-  getItem: (key) => {
-    if (memoryCache[key] !== undefined) {
-      return memoryCache[key];
-    }
-    return null;
-  },
+const syncWithWorker = async (key, value) => {
+  // No sincronizar si value está vacío o es array vacío
+  if (!value || value === '[]' || value === '{}') {
+    return;
+  }
   
-  setItem: (key, value) => {
-  memoryCache[key] = value;
-  saveToIDB(key, value);
-  
-  // Sincronizar con Worker (background, no bloqueante)
-  if (key.startsWith('des_')) {
-    fetch(`${API_URL}/sync`, {
+  try {
+    const response = await fetch(`${API_URL}/sync`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-API-Token': API_TOKEN
       },
       body: JSON.stringify({ key, value })
-    }).catch(e => console.warn('Sync failed:', e));
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      console.warn(`Sync error (${response.status}):`, key, error);
+      return false;
+    }
+    
+    const result = await response.json();
+    console.log(`✓ Synced ${result.table}: ${result.count} items`);
+    return true;
+  } catch (e) {
+    console.warn('Sync failed (offline):', key);
+    return false;
   }
-},
+};
+
+// ============================================================================
+// localStorage Proxy
+// ============================================================================
+
+const localStorageProxy = {
+  getItem: (key) => {
+    return memoryCache[key] !== undefined ? memoryCache[key] : null;
+  },
+  
+  setItem: (key, value) => {
+    // Guardar en memoria
+    memoryCache[key] = value;
+    
+    // Guardar en IndexedDB (offline persistence)
+    saveToIDB(key, value);
+    
+    // Sincronizar con Worker (background, no-blocking)
+    if (key.startsWith('des_')) {
+      syncWithWorker(key, value).catch(e => {
+        console.warn('Unexpected sync error:', e);
+      });
+    }
+  },
   
   removeItem: (key) => {
     delete memoryCache[key];
@@ -113,20 +137,22 @@ const localStorageProxy = {
   }
 };
 
-// Definir localStorage como proxy
+// ============================================================================
+// Initialize
+// ============================================================================
+
 Object.defineProperty(window, 'localStorage', {
   value: localStorageProxy,
   writable: false,
   configurable: false
 });
 
-// Inicializar al cargar
 window.addEventListener('DOMContentLoaded', async () => {
   await initDB();
-  console.log('✓ API Layer initialized - localStorage intercepted with IndexedDB cache');
+  console.log('✓ API Layer initialized - localStorage intercepted with D1 sync');
 });
 
-console.log('DES API Layer loaded');
+console.log('DES API Layer loaded - Production Ready');
 </script> 
 <style>
   /* ===== PALETA DES — MISMA BASE QUE LA COTIZACIÓN ===== */
