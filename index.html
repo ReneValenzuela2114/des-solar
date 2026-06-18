@@ -14,11 +14,11 @@
 const API_URL = 'https://des-api.renealejandrovalenzuela.workers.dev';
 const API_TOKEN = 'des-api-token-2026';
 
-// Cache en memoria
 const memoryCache = {};
+let db;
+let isOnline = navigator.onLine;
 
 // Inicializar IndexedDB para caché offline
-let db;
 const initDB = () => {
   return new Promise((resolve) => {
     const req = indexedDB.open('des-cache', 1);
@@ -35,23 +35,18 @@ const initDB = () => {
   });
 };
 
-// Guardar en IndexedDB
 const saveToIDB = async (key, value) => {
   if (!db) return;
-  return new Promise((resolve) => {
-    const tx = db.transaction('cache', 'readwrite');
-    const store = tx.objectStore('cache');
-    store.put(value, key);
-    tx.oncomplete = () => resolve();
-  });
+  const tx = db.transaction('cache', 'readwrite');
+  const store = tx.objectStore('cache');
+  store.put(value, key);
 };
 
-// Leer de IndexedDB
 const readFromIDB = async (key) => {
   if (!db) return null;
+  const tx = db.transaction('cache', 'readonly');
+  const store = tx.objectStore('cache');
   return new Promise((resolve) => {
-    const tx = db.transaction('cache', 'readonly');
-    const store = tx.objectStore('cache');
     const req = store.get(key);
     req.onsuccess = () => resolve(req.result);
   });
@@ -67,9 +62,14 @@ const callWorker = async (method, endpoint, data = null) => {
         'X-API-Token': API_TOKEN
       }
     };
-    if (data) options.body = JSON.stringify(data);
-
-    const response = await fetch(`${API_URL}${endpoint}?token=${API_TOKEN}`, options);
+    
+    if (data) {
+      options.body = JSON.stringify(data);
+    }
+    
+    const url = `${API_URL}${endpoint}`;
+    const response = await fetch(url, options);
+    
     if (response.ok) {
       return await response.json();
     } else {
@@ -82,117 +82,92 @@ const callWorker = async (method, endpoint, data = null) => {
   }
 };
 
-// Reemplazar localStorage globalmente
-const localStorageProxy = {
-  // GET
-  getItem: async (key) => {
-    // Primero intenta caché en memoria
-    if (memoryCache[key] !== undefined) {
-      return memoryCache[key];
-    }
-
-    // Luego IndexedDB
-    const cached = await readFromIDB(key);
-    if (cached) {
-      memoryCache[key] = cached;
-      return cached;
-    }
-
-    // Si no existe, retorna null (comportamiento de localStorage)
-    return null;
-  },
-
-  // SET
-  setItem: async (key, value) => {
-    // Guardar en memoria
-    memoryCache[key] = value;
-
-    // Guardar en IndexedDB para persistencia offline
-    await saveToIDB(key, value);
-
-    // Sincronizar con Worker (background, no bloquea)
-    // Para simplificar, solo sincronizamos datos críticos
+// Sincronizar datos pendientes al cargar
+window.addEventListener('DOMContentLoaded', async () => {
+  await initDB();
+  
+  // Sincronizar datos críticos si hay conexión
+  const keys = Object.keys(memoryCache);
+  for (const key of keys) {
     if (key.startsWith('des_')) {
       try {
-        const data = { key, value };
+        const data = { key, value: memoryCache[key] };
         await callWorker('POST', '/sync', data);
       } catch (e) {
-        // Si falla la sincronización, al menos está en IndexedDB
         console.warn('Sync failed, data in local cache:', key);
       }
     }
-  },
+  }
+  
+  console.log('✓ API Layer initialized - localStorage synced with D1');
+});
 
-  // REMOVE
-  removeItem: async (key) => {
-    delete memoryCache[key];
-    await saveToIDB(key, null);
-
-    // Notificar al Worker (background)
+// Sincronizar datos pendientes al reconectar
+window.addEventListener('online', async () => {
+  isOnline = true;
+  console.log('Network restored - syncing data...');
+  
+  const keys = Object.keys(memoryCache);
+  for (const key of keys) {
     if (key.startsWith('des_')) {
       try {
-        await callWorker('DELETE', `/sync?key=${key}`);
+        const data = { key, value: memoryCache[key] };
+        await callWorker('POST', '/sync', data);
       } catch (e) {
-        console.warn('Remove sync failed:', key);
+        console.warn('Sync failed:', key);
       }
     }
-  },
+  }
+});
 
-  // CLEAR
-  clear: async () => {
-    memoryCache = {};
-    const keys = Object.keys(memoryCache);
-    for (const key of keys) {
-      await saveToIDB(key, null);
+// Reemplazar localStorage globalmente
+const localStorageProxy = {
+  getItem: (key) => {
+    if (memoryCache[key] !== undefined) {
+      return memoryCache[key];
     }
-    console.log('Local storage cleared');
+    return null;
   },
-
-  // KEY (enumerar por índice)
+  
+  setItem: (key, value) => {
+    memoryCache[key] = value;
+    saveToIDB(key, value);
+    
+    // Sincronizar con Worker (background, no bloqueante)
+    if (isOnline && key.startsWith('des_')) {
+      callWorker('POST', '/sync', { key, value });
+    }
+  },
+  
+  removeItem: (key) => {
+    delete memoryCache[key];
+    saveToIDB(key, null);
+    
+    if (isOnline && key.startsWith('des_')) {
+      callWorker('DELETE', `/sync?key=${key}`);
+    }
+  },
+  
+  clear: () => {
+    Object.keys(memoryCache).forEach(key => {
+      delete memoryCache[key];
+      saveToIDB(key, null);
+    });
+  },
+  
   key: (index) => {
     const keys = Object.keys(memoryCache);
     return keys[index] || null;
   },
-
-  // LENGTH
+  
   get length() {
     return Object.keys(memoryCache).length;
   }
 };
 
-// Interceptar acceso a window.localStorage
 Object.defineProperty(window, 'localStorage', {
-  value: new Proxy(localStorageProxy, {
-    get(target, prop) {
-      // Para métodos async, devolver una versión que maneje Promises
-      if (typeof target[prop] === 'function') {
-        return function(...args) {
-          const result = target[prop](...args);
-          // Si es Promise, esperar; si no, devolver directo
-          if (result && typeof result.then === 'function') {
-            // Para getItem, retornar la Promise
-            return result;
-          }
-          return result;
-        };
-      }
-      return target[prop];
-    }
-  }),
+  value: localStorageProxy,
   writable: false
-});
-
-// Inicializar DB al cargar
-window.addEventListener('DOMContentLoaded', () => {
-  initDB().then(() => {
-    console.log('✓ API Layer initialized - localStorage synced with D1');
-  });
-});
-
-// Sincronizar datos pendientes al cargar (si hay conexión)
-window.addEventListener('online', async () => {
-  console.log('Network restored - syncing data...');
-  // Aquí se podría implementar sincronización de todos los cambios offline
 });
 
 console.log('DES API Layer loaded');
