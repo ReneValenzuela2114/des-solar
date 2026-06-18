@@ -75,9 +75,21 @@ const localStorageProxy = {
   },
   
   setItem: (key, value) => {
-    memoryCache[key] = value;
-    saveToIDB(key, value);
-  },
+  memoryCache[key] = value;
+  saveToIDB(key, value);
+  
+  // Sincronizar con Worker (background, no bloqueante)
+  if (key.startsWith('des_')) {
+    fetch(`${API_URL}/sync`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Token': API_TOKEN
+      },
+      body: JSON.stringify({ key, value })
+    }).catch(e => console.warn('Sync failed:', e));
+  }
+},
   
   removeItem: (key) => {
     delete memoryCache[key];
