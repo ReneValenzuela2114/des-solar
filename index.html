@@ -326,6 +326,8 @@
   body.staff-mode .admin-only,
   body.rol-socio .admin-only,
   body.rol-instalador .admin-only{display:none !important}
+  /* Config del sistema (Empresa, PDF, Respaldo, gestión de usuarios): solo el admin */
+  body.des-noadmin .noadmin-hide{display:none !important}
   /* instalador: solo la pestaña Archivos (subir cosas sencillas); se ocultan las demás pestañas */
   body.rol-instalador .tab[data-tab]:not([data-tab="archivos"]){display:none !important}
   body.rol-instalador #toolsSubtabs,
@@ -391,11 +393,19 @@
      Nada aquí afecta la vista de escritorio (las reglas no se leen >768px).
      =================================================================== */
   @media(max-width:768px){
+    /* Evita cualquier desbordamiento horizontal en el teléfono */
+    html,body{overflow-x:hidden;max-width:100%}
+
     /* Campos un poco más grandes para el dedo y evita el zoom de iOS al enfocar */
     input,select,textarea,.sfield input,.sfield textarea,.sfield select{font-size:16px}
 
     /* ── Header + pestañas ── */
-    header{padding:0 12px;gap:8px 10px;min-height:54px}
+    /* Fondo sólido de borde a borde: el degradado se confundía con el fondo
+       y hacía ver el menú "cortado" a media pantalla. */
+    header{padding:0 14px;gap:8px 10px;min-height:54px;width:100%;
+      background:linear-gradient(180deg,#ffffff 0%,#eef4fb 100%)}
+    /* La barra de sesión (correo + Usuarios/Salir) que se ajuste y no empuje el ancho */
+    #desSessBar{flex-wrap:wrap;justify-content:flex-end;row-gap:4px;min-width:0}
     .logo{width:38px;height:38px;font-size:15px}
     .brand h1{font-size:14px}
     .brand p{font-size:10.5px}
@@ -716,9 +726,12 @@ const DESAuth = {
     function setEdit(){ var s=curSec(); var lvl=admin?"editar":(perms[s]||"none"); document.body.setAttribute("data-edit", lvl==="editar"?"on":"off"); }
     document.querySelectorAll('.tab[data-tab]').forEach(function(t){ t.addEventListener('click',function(){ setTimeout(setEdit,0); }); });
     setEdit();
-    // El botón de Ajustes del sistema solo lo ve el administrador.
-    var gear=document.querySelector('header .btn-settings'); if(gear) gear.style.display = admin ? "" : "none";
-    this.injectHeader(admin);
+    // El botón de Ajustes lo ven todos; la configuración del sistema (Empresa, PDF,
+    // Respaldo y gestión de usuarios) se oculta a los no-admin con .noadmin-hide.
+    var gear=document.querySelector('header .btn-settings'); if(gear) gear.style.display="";
+    document.body.classList.toggle("des-noadmin", !admin);
+    // Ya no se inyecta barra de sesión en el header: usuario y "cerrar sesión" viven en Ajustes.
+    var _sb=document.getElementById("desSessBar"); if(_sb) _sb.remove();
   },
   injectHeader:function(admin){
     var hdr=document.querySelector("header"); if(!hdr || document.getElementById("desSessBar")) return;
@@ -2177,7 +2190,7 @@ window.DESAuth = DESAuth;
     </div>
 
     <!-- ░░ Sección 1 · Empresa ░░ -->
-    <div class="acc open">
+    <div class="acc noadmin-hide">
       <button type="button" class="acc-head" onclick="toggleAcc(this)">
         <span class="acc-ico">🏢</span><span class="acc-ttl">Empresa</span><span class="acc-arrow">▸</span>
       </button>
@@ -2207,7 +2220,7 @@ window.DESAuth = DESAuth;
     </div>
 
     <!-- ░░ Sección 2 · Documento PDF (firma + logo + márgenes) ░░ -->
-    <div class="acc">
+    <div class="acc noadmin-hide">
       <button type="button" class="acc-head" onclick="toggleAcc(this)">
         <span class="acc-ico">📄</span><span class="acc-ttl">Documento PDF</span><span class="acc-arrow">▸</span>
       </button>
@@ -2278,7 +2291,7 @@ window.DESAuth = DESAuth;
     </div>
 
     <!-- ░░ Sección 3 · Respaldo ░░ -->
-    <div class="acc">
+    <div class="acc noadmin-hide">
       <button type="button" class="acc-head" onclick="toggleAcc(this)">
         <span class="acc-ico">💾</span><span class="acc-ttl">Respaldo de datos</span><span class="acc-arrow">▸</span>
       </button>
@@ -2294,8 +2307,25 @@ window.DESAuth = DESAuth;
       </div>
     </div>
 
+    <!-- ░░ Sección 4 · Usuarios y sesión ░░ -->
+    <div class="acc">
+      <button type="button" class="acc-head" onclick="toggleAcc(this)">
+        <span class="acc-ico">👥</span><span class="acc-ttl">Usuarios y sesión</span><span class="acc-arrow">▸</span>
+      </button>
+      <div class="acc-body">
+        <div style="font-size:12.5px;color:var(--muted);margin-bottom:12px">Sesión actual: <strong id="setUserName" style="color:var(--navy)">—</strong></div>
+        <div class="noadmin-hide" style="margin-bottom:14px">
+          <p style="font-size:12px;color:var(--muted);margin:0 0 10px;line-height:1.55">Crea cuentas para tu equipo y define a qué pestañas puede entrar cada quien y si puede crear/editar/borrar o solo ver.</p>
+          <button class="btn primary sm" onclick="if(window.DESAuth)DESAuth.openUsers()">👥 Gestionar usuarios</button>
+        </div>
+        <div style="border-top:1px dashed var(--line);padding-top:13px">
+          <button class="btn sm" style="background:var(--danger);color:#fff;border:none" onclick="if(window.DESAuth)DESAuth.logout()">⎋ Cerrar sesión</button>
+        </div>
+      </div>
+    </div>
+
     <div class="actions" style="margin-top:18px">
-      <button class="btn primary admin-only" onclick="saveSettings()">💾 Guardar ajustes</button>
+      <button class="btn primary admin-only noadmin-hide" onclick="saveSettings()">💾 Guardar ajustes</button>
       <button class="btn ghost" onclick="closeSettings()">Cancelar</button>
     </div>
   </div>
@@ -4822,6 +4852,9 @@ function openSettings(){
   renderLogoPreview();
   renderFirmaPreview();
   if(window.projUpdBkStatus) window.projUpdBkStatus();
+  // Usuario actual en la sección "Usuarios y sesión"
+  const _u=window.DES_USER||{}; const _un=$("setUserName");
+  if(_un) _un.textContent=(_u.username||"—")+(_u.is_admin?" (administrador)":"");
   $("settingsModal").classList.add("show");
 }
 function closeSettings(){$("settingsModal").classList.remove("show")}
