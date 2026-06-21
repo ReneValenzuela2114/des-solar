@@ -385,6 +385,70 @@
   .vled tr:hover td{background:var(--soft)}
   .vadd-form{background:var(--soft);border:1.5px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
   @media(max-width:600px){.vcard-nums,.vsummary{grid-template-columns:repeat(2,1fr)}}
+
+  /* ===================================================================
+     MÓVIL / TELÉFONO — solo aplica en pantallas angostas.
+     Nada aquí afecta la vista de escritorio (las reglas no se leen >768px).
+     =================================================================== */
+  @media(max-width:768px){
+    /* Campos un poco más grandes para el dedo y evita el zoom de iOS al enfocar */
+    input,select,textarea,.sfield input,.sfield textarea,.sfield select{font-size:16px}
+
+    /* ── Header + pestañas ── */
+    header{padding:0 12px;gap:8px 10px;min-height:54px}
+    .logo{width:38px;height:38px;font-size:15px}
+    .brand h1{font-size:14px}
+    .brand p{font-size:10.5px}
+    .btn-settings{margin-left:auto}
+    .tabs{order:5;width:100%;margin-left:0;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+    .tabs::-webkit-scrollbar{display:none}
+    .tab{height:46px;padding:0 13px;font-size:12.5px}
+
+    /* ── Contenedores ── */
+    .wrap{padding:14px}
+    .card{padding:15px;border-radius:11px}
+    .grid{gap:14px}
+
+    /* ── Formularios a una sola columna ── */
+    .row,.srow{grid-template-columns:1fr}
+    .trow{grid-template-columns:1fr 88px 34px}
+
+    /* ── Tablas: que quepan o hagan scroll horizontal, sin romper la página ── */
+    .ttable,.vled{display:block;width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+    /* ── Detalle (ficha) ── */
+    .kv{grid-template-columns:112px 1fr;gap:6px 10px;font-size:13px}
+
+    /* ── Subtabs con scroll ── */
+    .subtabs{display:flex;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+    .subtabs::-webkit-scrollbar{display:none}
+    .subtab{white-space:nowrap}
+
+    /* ── Listas: usar alto natural en pantalla chica ── */
+    .clist{max-height:none}
+
+    /* ── Modales casi a pantalla completa ── */
+    .modal{padding:10px}
+    .modal .box{padding:17px;max-height:92vh;border-radius:14px}
+
+    /* ── Resúmenes a 2 columnas ── */
+    .vcard-nums,.vsummary{grid-template-columns:repeat(2,1fr)}
+
+    /* ── Botones de acción que llenen el ancho ── */
+    .actions .btn{flex:1 1 auto;justify-content:center}
+  }
+
+  @media(max-width:480px){
+    .wrap{padding:11px}
+    .card{padding:13px}
+    .tab{padding:0 11px;font-size:12px}
+    /* Ficha: etiqueta encima del valor */
+    .kv{grid-template-columns:1fr;gap:1px}
+    .kv .k{margin-top:9px}
+    /* Acciones apiladas a ancho completo */
+    .actions{flex-direction:column}
+    .actions .btn{width:100%}
+  }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
