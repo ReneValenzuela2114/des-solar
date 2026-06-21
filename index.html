@@ -2401,11 +2401,7 @@ function detail(id){
       ${c.maps?`<div class="k">Ubicación</div><div><a class="link" href="javascript:void(0)" onclick="openMaps('${c.maps.replace(/'/g,"\\'")}')">📍 Abrir en Maps</a></div>`:""}
       ${r("Etapa",c.etapa)}${r("Referido por",c.referido)}${r("Notas",c.notas)}
     </div>
-    <div style="font-size:12.5px;color:var(--muted);margin-bottom:6px">Estructura de carpetas del cliente:</div>
-    <div class="folders">${esc(folderTree)}</div>
-    <div class="note">📂 <b>Para crear estas carpetas en tu OneDrive:</b> presiona <b>“Generar carpetas”</b> y se descargará un archivo <code>.bat</code>. Guárdalo dentro de tu carpeta de OneDrive y haz doble clic: creará la carpeta del cliente con sus 5 subcarpetas. (En la versión en la nube esto será automático.)</div>
     <div class="actions" style="margin-top:16px">
-      <button class="btn primary" onclick="genFolders('${c.id}')">📂 Generar carpetas</button>
       <button class="btn ghost admin-only" onclick="edit('${c.id}')">✏️ Editar</button>
       <button class="btn ghost admin-only" onclick="del('${c.id}')" style="color:var(--danger)">🗑 Eliminar</button>
     </div>`;
