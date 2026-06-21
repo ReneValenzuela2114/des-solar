@@ -349,6 +349,20 @@
   .logo-preview{display:flex;align-items:center;gap:12px;margin-top:6px}
   .logo-preview img{height:52px;width:auto;max-width:200px;border-radius:8px;border:1px solid var(--line);object-fit:contain;background:#fff;padding:4px}
   .logo-text-box{width:52px;height:52px;border-radius:13px;background:linear-gradient(140deg,var(--blue),var(--navy));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px}
+  /* ── Acordeón de Ajustes ── */
+  .acc{border:1px solid var(--line);border-radius:12px;margin-bottom:10px;overflow:hidden;background:var(--card)}
+  .acc-head{width:100%;display:flex;align-items:center;gap:10px;background:var(--soft);border:none;padding:13px 15px;cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:800;color:var(--navy);text-align:left;transition:background .15s}
+  .acc-head:hover{background:var(--line)}
+  .acc-head .acc-ico{font-size:15px;line-height:1}
+  .acc-head .acc-ttl{flex:1}
+  .acc-head .acc-arrow{font-size:12px;color:var(--muted);transition:transform .18s}
+  .acc.open .acc-head .acc-arrow{transform:rotate(90deg)}
+  .acc.open .acc-head{background:var(--line);border-bottom:1px solid var(--line)}
+  .acc-body{display:none;padding:15px 16px 17px}
+  .acc.open .acc-body{display:block}
+  .acc-body fieldset{border:none;padding:0;margin:0 0 4px}
+  .acc-body fieldset+fieldset{margin-top:18px;padding-top:16px;border-top:1px dashed var(--line)}
+  .acc-body legend{display:block;padding:0;margin-bottom:10px;font-size:10.5px;text-transform:uppercase;letter-spacing:1.2px;color:var(--blue);font-weight:800}
   /* ── VENTAS MODULE ── */
   .vcard{background:#fff;border:1.5px solid var(--line);border-radius:11px;padding:8px 13px;margin-bottom:6px;cursor:pointer;transition:.15s;box-shadow:0 1px 5px rgba(12,54,95,.05)}
   .vcard:hover{border-color:var(--blue);box-shadow:0 3px 12px rgba(12,54,95,.12);transform:translateY(-1px)}
@@ -638,6 +652,8 @@ const DESAuth = {
     function setEdit(){ var s=curSec(); var lvl=admin?"editar":(perms[s]||"none"); document.body.setAttribute("data-edit", lvl==="editar"?"on":"off"); }
     document.querySelectorAll('.tab[data-tab]').forEach(function(t){ t.addEventListener('click',function(){ setTimeout(setEdit,0); }); });
     setEdit();
+    // El botón de Ajustes del sistema solo lo ve el administrador.
+    var gear=document.querySelector('header .btn-settings'); if(gear) gear.style.display = admin ? "" : "none";
     this.injectHeader(admin);
   },
   injectHeader:function(admin){
@@ -755,15 +771,6 @@ window.DESAuth = DESAuth;
   </nav>
   <button class="btn-settings" title="Ajustes del sistema" onclick="openSettings()">⚙</button>
 </header>
-
-<div class="storebar">
-  <span class="stchip" id="stChip"><span class="dot"></span><span id="stChipText">Comprobando almacenamiento…</span></span>
-  <span class="stchip" id="dirChip" style="display:none"><span class="dot"></span><span id="dirChipText"></span></span>
-  <button class="btn ghost sm" id="btnDir">📁 Conectar carpeta del proyecto</button>
-  <button class="btn primary sm" id="btnRespaldo" title="Guarda TODA la info en un solo archivo (en OneDrive si la carpeta está conectada)" onclick="exportarTodo()">💾 Respaldar todo</button>
-  <button class="btn ghost sm" id="btnUndo" style="display:none" title="Deshacer la última acción">↶ Deshacer</button>
-  <span class="stmsg" id="stMsg"></span>
-</div>
 
 <div class="wrap" id="tab-clientes">
   <div class="grid">
@@ -2105,148 +2112,128 @@ window.DESAuth = DESAuth;
       <button class="btn ghost sm" onclick="closeSettings()">✕</button>
     </div>
 
-    <fieldset>
-      <legend>Empresa</legend>
-      <div class="srow">
-        <div class="sfield"><label>Nombre de la empresa</label><input id="sNombre" placeholder="Diseños, Equipos y Sistemas"></div>
-        <div class="sfield"><label>Slogan / subtítulo</label><input id="sLema" placeholder="Soluciones de energía solar..."></div>
-        <div class="sfield"><label>NIT</label><input id="sNIT" placeholder="CF o número"></div>
-        <div class="sfield"><label>Teléfono</label><input id="sTel" placeholder="4219-2403"></div>
-        <div class="sfield full"><label>Correo electrónico</label><input id="sCorreo" type="email" placeholder="correo@empresa.com"></div>
-        <div class="sfield full"><label>Dirección</label><input id="sDireccion" placeholder="5a Calle, Zona 3, Sanarate..."></div>
-      </div>
-    </fieldset>
-
-    <fieldset style="margin-top:14px">
-      <legend>Firma en el PDF</legend>
-      <div class="srow">
-        <div class="sfield"><label>Nombre del firmante</label><input id="sFirmante" placeholder="Ing. René Valenzuela"></div>
-        <div class="sfield"><label>Cargo / título</label><input id="sCargo" placeholder="Gerente, Ingeniero..."></div>
-      </div>
-
-      <div style="margin-top:12px">
-        <p style="font-size:12px;color:var(--muted);margin:0 0 8px">Imagen de firma (PNG/JPG). Aparecerá sobre el nombre en la cotización. Recomendado: firma en papel blanco, foto o escáner.</p>
-        <div class="logo-preview" id="firmaPreview"></div>
-
-        <div id="firmaControls" style="display:none;margin-top:12px;flex-direction:column;gap:10px">
-          <div style="display:flex;align-items:center;gap:10px">
-            <label style="font-size:12px;color:var(--muted);white-space:nowrap;min-width:80px">Tamaño: <strong id="firmaSizeVal">52</strong>px</label>
-            <input type="range" id="sFirmaSize" min="24" max="100" step="1" value="52"
-              style="flex:1;accent-color:var(--blue)"
-              oninput="$('firmaSizeVal').textContent=this.value;CFG.firmaSize=+this.value;renderFirmaPreview()">
+    <!-- ░░ Sección 1 · Empresa ░░ -->
+    <div class="acc open">
+      <button type="button" class="acc-head" onclick="toggleAcc(this)">
+        <span class="acc-ico">🏢</span><span class="acc-ttl">Empresa</span><span class="acc-arrow">▸</span>
+      </button>
+      <div class="acc-body">
+        <fieldset>
+          <legend>Datos de la empresa</legend>
+          <div class="srow">
+            <div class="sfield"><label>Nombre de la empresa</label><input id="sNombre" placeholder="Diseños, Equipos y Sistemas"></div>
+            <div class="sfield"><label>Slogan / subtítulo</label><input id="sLema" placeholder="Soluciones de energía solar..."></div>
+            <div class="sfield"><label>NIT</label><input id="sNIT" placeholder="CF o número"></div>
+            <div class="sfield"><label>Teléfono</label><input id="sTel" placeholder="4219-2403"></div>
+            <div class="sfield full"><label>Correo electrónico</label><input id="sCorreo" type="email" placeholder="correo@empresa.com"></div>
+            <div class="sfield full"><label>Dirección</label><input id="sDireccion" placeholder="5a Calle, Zona 3, Sanarate..."></div>
           </div>
-          <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer">
-            <input type="checkbox" id="sFirmaTrimBg" checked style="accent-color:var(--blue);width:15px;height:15px"
-              onchange="CFG.firmaTrimBg=this.checked;renderFirmaPreview()">
-            <span>Recortar fondo blanco <span style="color:var(--muted)">(recomendado para firmas sobre papel blanco)</span></span>
-          </label>
-        </div>
-
-        <div style="margin-top:10px;display:flex;gap:10px;align-items:center">
-          <input type="file" id="sFirmaFile" accept="image/png,image/jpeg,image/webp" style="display:none">
-          <button class="btn ghost sm" onclick="$('sFirmaFile').click()">✍️ Subir firma</button>
-          <button class="btn ghost sm admin-only" id="btnFirmaRemove" style="color:var(--danger);display:none" onclick="removeFirma()">✕ Quitar firma</button>
-        </div>
+        </fieldset>
+        <fieldset>
+          <legend>Logo en la barra superior</legend>
+          <p style="font-size:12px;color:var(--muted);margin:0 0 10px">Tamaño con el que se ve tu logo en la barra de la app. El logo se sube en la sección <strong>Documento PDF</strong>.</p>
+          <div style="display:flex;align-items:center;gap:10px">
+            <label style="font-size:12px;color:var(--muted);white-space:nowrap;min-width:100px">Barra: <strong id="logoHeaderSizeVal">43</strong>px</label>
+            <input type="range" id="sLogoHeaderSize" min="24" max="90" step="1" value="43"
+              style="flex:1;accent-color:var(--blue)"
+              oninput="$('logoHeaderSizeVal').textContent=this.value;CFG.logoHeaderSize=+this.value;renderHeaderLogo()">
+          </div>
+        </fieldset>
       </div>
-    </fieldset>
+    </div>
 
-    <fieldset style="margin-top:14px">
-      <legend>Logo del PDF</legend>
-      <p style="font-size:12px;color:var(--muted);margin:0 0 10px">Sube una imagen (PNG o JPG) para reemplazar el cuadro "DES". Recomendado: fondo transparente, mínimo 200×200 px.</p>
-      <div class="logo-preview" id="logoPreview"></div>
+    <!-- ░░ Sección 2 · Documento PDF (firma + logo + márgenes) ░░ -->
+    <div class="acc">
+      <button type="button" class="acc-head" onclick="toggleAcc(this)">
+        <span class="acc-ico">📄</span><span class="acc-ttl">Documento PDF</span><span class="acc-arrow">▸</span>
+      </button>
+      <div class="acc-body">
+        <fieldset>
+          <legend>Firma</legend>
+          <div class="srow">
+            <div class="sfield"><label>Nombre del firmante</label><input id="sFirmante" placeholder="Ing. René Valenzuela"></div>
+            <div class="sfield"><label>Cargo / título</label><input id="sCargo" placeholder="Gerente, Ingeniero..."></div>
+          </div>
+          <div style="margin-top:12px">
+            <p style="font-size:12px;color:var(--muted);margin:0 0 8px">Imagen de firma (PNG/JPG). Aparece sobre el nombre en la cotización. Recomendado: firma en papel blanco, foto o escáner.</p>
+            <div class="logo-preview" id="firmaPreview"></div>
+            <div id="firmaControls" style="display:none;margin-top:12px;flex-direction:column;gap:10px">
+              <div style="display:flex;align-items:center;gap:10px">
+                <label style="font-size:12px;color:var(--muted);white-space:nowrap;min-width:80px">Tamaño: <strong id="firmaSizeVal">52</strong>px</label>
+                <input type="range" id="sFirmaSize" min="24" max="100" step="1" value="52"
+                  style="flex:1;accent-color:var(--blue)"
+                  oninput="$('firmaSizeVal').textContent=this.value;CFG.firmaSize=+this.value;renderFirmaPreview()">
+              </div>
+              <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer">
+                <input type="checkbox" id="sFirmaTrimBg" checked style="accent-color:var(--blue);width:15px;height:15px"
+                  onchange="CFG.firmaTrimBg=this.checked;renderFirmaPreview()">
+                <span>Recortar fondo blanco <span style="color:var(--muted)">(recomendado para firmas sobre papel blanco)</span></span>
+              </label>
+            </div>
+            <div style="margin-top:10px;display:flex;gap:10px;align-items:center">
+              <input type="file" id="sFirmaFile" accept="image/png,image/jpeg,image/webp" style="display:none">
+              <button class="btn ghost sm" onclick="$('sFirmaFile').click()">✍️ Subir firma</button>
+              <button class="btn ghost sm admin-only" id="btnFirmaRemove" style="color:var(--danger);display:none" onclick="removeFirma()">✕ Quitar firma</button>
+            </div>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Logo</legend>
+          <p style="font-size:12px;color:var(--muted);margin:0 0 10px">Sube una imagen (PNG o JPG) para reemplazar el cuadro "DES". Recomendado: fondo transparente, mínimo 200×200 px.</p>
+          <div class="logo-preview" id="logoPreview"></div>
+          <div id="logoControls" style="display:none;margin-top:14px;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <label style="font-size:12px;color:var(--muted);white-space:nowrap;min-width:100px">PDF: <strong id="logoSizeVal">52</strong>px</label>
+              <input type="range" id="sLogoSize" min="28" max="120" step="1" value="52"
+                style="flex:1;accent-color:var(--blue)"
+                oninput="$('logoSizeVal').textContent=this.value;CFG.logoSize=+this.value;renderLogoPreview()">
+            </div>
+            <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer">
+              <input type="checkbox" id="sLogoTrimBg" style="accent-color:var(--blue);width:15px;height:15px"
+                onchange="CFG.logoTrimBg=this.checked;renderLogoPreview()">
+              <span>Recortar fondo blanco <span style="color:var(--muted)">(útil para logos con fondo blanco sobre PDF blanco)</span></span>
+            </label>
+          </div>
+          <div style="margin-top:10px;display:flex;gap:10px;align-items:center">
+            <input type="file" id="sLogoFile" accept="image/png,image/jpeg,image/svg+xml,image/webp" style="display:none">
+            <button class="btn ghost sm" onclick="$('sLogoFile').click()">📁 Subir imagen</button>
+            <button class="btn ghost sm admin-only" id="btnLogoRemove" style="color:var(--danger);display:none" onclick="removeLogo()">✕ Quitar logo</button>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Márgenes (pulgadas)</legend>
+          <p style="font-size:12px;color:var(--muted);margin:0 0 10px">Estándar: 1 pulg. en todos los lados.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div class="sfield"><label>Superior</label><input type="number" id="sMargenTop" min="0.25" max="2" step="0.05" class="no-spin" style="font-size:13px"></div>
+            <div class="sfield"><label>Inferior</label><input type="number" id="sMargenBottom" min="0.25" max="2" step="0.05" class="no-spin" style="font-size:13px"></div>
+            <div class="sfield"><label>Izquierdo</label><input type="number" id="sMargenLeft" min="0.25" max="2" step="0.05" class="no-spin" style="font-size:13px"></div>
+            <div class="sfield"><label>Derecho</label><input type="number" id="sMargenRight" min="0.25" max="2" step="0.05" class="no-spin" style="font-size:13px"></div>
+          </div>
+        </fieldset>
+      </div>
+    </div>
 
-      <div id="logoControls" style="display:none;margin-top:14px;flex-direction:column;gap:10px">
-        <!-- Slider tamaño PDF -->
-        <div style="display:flex;align-items:center;gap:10px">
-          <label style="font-size:12px;color:var(--muted);white-space:nowrap;min-width:100px">PDF: <strong id="logoSizeVal">52</strong>px</label>
-          <input type="range" id="sLogoSize" min="28" max="120" step="1" value="52"
-            style="flex:1;accent-color:var(--blue)"
-            oninput="$('logoSizeVal').textContent=this.value;CFG.logoSize=+this.value;renderLogoPreview()">
+    <!-- ░░ Sección 3 · Respaldo ░░ -->
+    <div class="acc">
+      <button type="button" class="acc-head" onclick="toggleAcc(this)">
+        <span class="acc-ico">💾</span><span class="acc-ttl">Respaldo de datos</span><span class="acc-arrow">▸</span>
+      </button>
+      <div class="acc-body">
+        <p style="font-size:12px;color:var(--muted);margin:0 0 11px;line-height:1.55">Guarda <strong>TODA</strong> la info en un solo archivo: clientes, cotizaciones, catálogo, trabajos, proyectos, finanzas, comprobantes, trámites, diagramas, expedientes y ajustes. Si no tienes una carpeta conectada, al respaldar o restaurar se te pedirá elegir una.</p>
+        <div id="bkFolderStatus" style="font-size:12px;background:var(--soft);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:12px;line-height:1.5"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn primary sm" onclick="guardarRespaldo()">⬇ Respaldar</button>
+          <button class="btn ghost sm" onclick="restaurarRespaldo()">⬆ Restaurar respaldo</button>
+          <input type="file" id="importarTodoFile" accept=".json" style="display:none" onchange="importarTodo(this)">
         </div>
-        <!-- Slider tamaño Header -->
-        <div style="display:flex;align-items:center;gap:10px">
-          <label style="font-size:12px;color:var(--muted);white-space:nowrap;min-width:100px">Barra: <strong id="logoHeaderSizeVal">43</strong>px</label>
-          <input type="range" id="sLogoHeaderSize" min="24" max="90" step="1" value="43"
-            style="flex:1;accent-color:var(--blue)"
-            oninput="$('logoHeaderSizeVal').textContent=this.value;CFG.logoHeaderSize=+this.value;renderHeaderLogo()">
-        </div>
-        <!-- Checkbox recortar fondo -->
-        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer">
-          <input type="checkbox" id="sLogoTrimBg" style="accent-color:var(--blue);width:15px;height:15px"
-            onchange="CFG.logoTrimBg=this.checked;renderLogoPreview()">
-          <span>Recortar fondo blanco <span style="color:var(--muted)">(útil para logos con fondo blanco sobre PDF blanco)</span></span>
-        </label>
+        <p style="font-size:11px;color:var(--muted);margin:11px 0 0">Por seguridad, la clave de la API no se incluye en el respaldo (se vuelve a pegar si restauras en otro equipo).</p>
       </div>
-
-      <div style="margin-top:10px;display:flex;gap:10px;align-items:center">
-        <input type="file" id="sLogoFile" accept="image/png,image/jpeg,image/svg+xml,image/webp" style="display:none">
-        <button class="btn ghost sm" onclick="$('sLogoFile').click()">📁 Subir imagen</button>
-        <button class="btn ghost sm admin-only" id="btnLogoRemove" style="color:var(--danger);display:none" onclick="removeLogo()">✕ Quitar logo</button>
-      </div>
-    </fieldset>
-
-    <fieldset style="margin-top:14px">
-      <legend>Márgenes del PDF (pulgadas)</legend>
-      <p style="font-size:12px;color:var(--muted);margin:4px 0 10px">Estándar: 1 pulg. en todos los lados.</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div class="sfield"><label>Superior</label><input type="number" id="sMargenTop" min="0.25" max="2" step="0.05" class="no-spin" style="font-size:13px"></div>
-        <div class="sfield"><label>Inferior</label><input type="number" id="sMargenBottom" min="0.25" max="2" step="0.05" class="no-spin" style="font-size:13px"></div>
-        <div class="sfield"><label>Izquierdo</label><input type="number" id="sMargenLeft" min="0.25" max="2" step="0.05" class="no-spin" style="font-size:13px"></div>
-        <div class="sfield"><label>Derecho</label><input type="number" id="sMargenRight" min="0.25" max="2" step="0.05" class="no-spin" style="font-size:13px"></div>
-      </div>
-    </fieldset>
+    </div>
 
     <div class="actions" style="margin-top:18px">
       <button class="btn primary admin-only" onclick="saveSettings()">💾 Guardar ajustes</button>
       <button class="btn ghost" onclick="closeSettings()">Cancelar</button>
     </div>
-
-    <fieldset style="margin-top:20px;border-color:var(--blue)">
-      <legend style="color:var(--blue)">💾 Respaldo general</legend>
-      <p style="font-size:12px;color:var(--muted);margin:0 0 12px">Guarda <strong>TODA</strong> la info en un solo archivo: clientes, cotizaciones, catálogo, trabajos, proyectos, finanzas, comprobantes, trámites, diagramas, expedientes y ajustes. Puedes guardarlo en <strong>tu computadora</strong> y/o en <strong>la nube</strong>. Recomendado: hacer ambos de vez en cuando.</p>
-      <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <button class="btn primary sm" onclick="exportarTodo()">⬇ Guardar en mi computadora</button>
-        <button class="btn primary sm" onclick="respaldarNube()">☁ Guardar en la nube</button>
-        <button class="btn ghost sm" onclick="$('importarTodoFile').click()">⬆ Restaurar respaldo</button>
-        <input type="file" id="importarTodoFile" accept=".json" style="display:none" onchange="importarTodo(this)">
-      </div>
-      <p style="font-size:11px;color:var(--muted);margin:10px 0 0">Nota: por seguridad, la clave de la API no se incluye en el respaldo (se vuelve a pegar si restauras en otro equipo). Los archivos/fotos ya viven en la nube (R2) aparte.</p>
-    </fieldset>
-
-    <fieldset style="margin-top:20px;border-color:#0a7d4f">
-      <legend style="color:#0a7d4f">☁ Almacenamiento en la nube (R2)</legend>
-      <p style="font-size:12px;color:var(--muted);margin:0 0 10px;line-height:1.55">Los bauchers nuevos ya se guardan en la nube (R2), no en el navegador. Usa este botón <strong>una sola vez</strong> para subir a R2 los comprobantes que ya tenías guardados aquí y aligerar el almacenamiento local. <strong>Descarga un respaldo antes.</strong></p>
-      <div id="r2MigEstado" style="font-size:12px;color:var(--muted);font-weight:700;margin-bottom:9px"></div>
-      <button class="btn admin-only" style="background:#0a7d4f;color:#fff;border:none" onclick="migrarBauchersR2()">☁ Subir bauchers existentes a R2</button>
-    </fieldset>
-
-    <fieldset style="margin-top:20px;border-color:#0a7d4f">
-      <legend style="color:#0a7d4f">🔧 Recuperar datasheets de productos</legend>
-      <p style="font-size:12px;color:var(--muted);margin:0 0 10px;line-height:1.5">Si los datasheets de productos dejaron de abrirse ("archivo no encontrado"), esto los vuelve a cargar desde la carpeta <strong>DES-Archivos/Productos</strong> de tu proyecto. Antes <strong>conecta la carpeta</strong> con el botón 📁 de arriba.</p>
-      <button class="btn" style="background:#0a7d4f;color:#fff;border:none" onclick="recuperarDatasheets()">🔧 Recuperar datasheets desde la carpeta</button>
-    </fieldset>
-
-    <fieldset style="margin-top:20px;border-color:#e07b00">
-      <legend style="color:#c0660a">🧹 Reinicio parcial de datos</legend>
-      <p style="font-size:12px;color:var(--muted);margin:0 0 10px;line-height:1.55">Borra solo lo que marques y lo deja vacío. <strong>NO toca</strong> Clientes, Catálogo, configuración del PDF, Cotizaciones guardadas, ni los ajustes/logo del sistema. <strong>Descarga un respaldo antes por seguridad.</strong></p>
-      <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:13px">
-        <label style="display:flex;align-items:flex-start;gap:9px;font-size:12.5px;cursor:pointer;color:var(--navy)">
-          <input type="checkbox" id="rpProyectos" checked style="accent-color:#e07b00;width:16px;height:16px;margin-top:1px">
-          <span><strong>Proyectos y movimientos</strong> — borra los proyectos y todos sus cobros/pagos. <span id="rpProyectosCnt" style="color:var(--muted)"></span></span>
-        </label>
-        <label style="display:flex;align-items:flex-start;gap:9px;font-size:12.5px;cursor:pointer;color:var(--navy)">
-          <input type="checkbox" id="rpPagos" checked style="accent-color:#e07b00;width:16px;height:16px;margin-top:1px">
-          <span><strong>Pagos: comprobantes y bandeja</strong> — borra los comprobantes guardados del archivo y la bandeja. <span id="rpPagosCnt" style="color:var(--muted)"></span></span>
-        </label>
-      </div>
-      <button class="btn admin-only" style="background:#e07b00;color:#fff;border:none" onclick="reinicioParcial()">🧹 Reiniciar lo seleccionado</button>
-    </fieldset>
-
-    <fieldset style="margin-top:20px;border-color:var(--danger)">
-      <legend style="color:var(--danger)">⚠ Zona de peligro</legend>
-      <p style="font-size:12px;color:var(--muted);margin:0 0 12px">Borra permanentemente todos los clientes, cotizaciones, catálogo, trabajos y ajustes. Esta acción no se puede deshacer. <strong>Descarga un respaldo antes si lo necesitas.</strong></p>
-      <button class="btn admin-only" style="background:var(--danger);color:#fff;border:none" onclick="resetTodosLosDatos()">🗑 Borrar todos los datos</button>
-    </fieldset>
   </div>
 </div>
 
@@ -4445,7 +4432,7 @@ function doUndo(){
   toast("Acción deshecha ✓");
   updateUndoBtn();
 }
-$("btnUndo").addEventListener("click",doUndo);
+{ const _ub=$("btnUndo"); if(_ub) _ub.addEventListener("click",doUndo); }
 
 /* ===================== PERSISTENCIA RESISTENTE =====================
    Problema: en algunos visores de escritorio localStorage se bloquea o se
@@ -4455,7 +4442,7 @@ $("btnUndo").addEventListener("click",doUndo);
 (function(){
   const chip=$("stChip"), chipTxt=$("stChipText"), msg=$("stMsg");
   function setChip(state,txt,detail){
-    chip.className="stchip "+state; chipTxt.textContent=txt; msg.textContent=detail||"";
+    if(!chip)return; chip.className="stchip "+state; chipTxt.textContent=txt; msg.textContent=detail||"";
   }
 
   // --- ¿Funciona localStorage en este entorno? ---
@@ -4561,7 +4548,14 @@ $("btnUndo").addEventListener("click",doUndo);
   function hGet(k){return hOpen().then(db=>new Promise((res,rej)=>{const t=db.transaction("kv","readonly").objectStore("kv").get(k);t.onsuccess=()=>res(t.result);t.onerror=()=>rej(t.error)}))}
   function hPut(k,v){return hOpen().then(db=>new Promise((res,rej)=>{const tx=db.transaction("kv","readwrite");tx.objectStore("kv").put(v,k);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)}))}
 
-  function setChip(state,txt){chip.style.display="";chip.className="stchip "+state;chipTxt.textContent=txt;}
+  function setChip(state,txt){if(!chip)return;chip.style.display="";chip.className="stchip "+state;chipTxt.textContent=txt;}
+  // Actualiza el indicador de carpeta dentro de Ajustes → Respaldo
+  function updBkStatus(){
+    const el=document.getElementById("bkFolderStatus"); if(!el)return;
+    if(dir){ el.innerHTML='<span style="color:#0a7d4f;font-weight:700">📁 Carpeta conectada:</span> '+dir.name; }
+    else{ el.innerHTML='<span style="color:#c0660a;font-weight:700">📁 Sin carpeta conectada.</span> Al respaldar o restaurar se te pedirá elegir una.'; }
+  }
+  window.projUpdBkStatus=updBkStatus;
   const sanitize=s=>(s||"").toString().replace(/[\\/:*?"<>|]/g,"-").trim()||"_";
 
   async function ensurePerm(handle,prompt){
@@ -4624,31 +4618,34 @@ $("btnUndo").addEventListener("click",doUndo);
   };
 
   async function connect(handle,prompt){
-    if(!await ensurePerm(handle,prompt)){setChip("warn","📁 "+handle.name+" · permiso pendiente");btn.textContent="🔁 Reconectar carpeta";return false;}
+    if(!await ensurePerm(handle,prompt)){setChip("warn","📁 "+handle.name+" · permiso pendiente");if(btn)btn.textContent="🔁 Reconectar carpeta";updBkStatus();return false;}
     dir=handle;try{await hPut("projDirHandle",handle);}catch(e){}
-    setChip("ok","📁 "+handle.name);btn.textContent="Cambiar carpeta";mirrorData();return true;
+    setChip("ok","📁 "+handle.name);if(btn)btn.textContent="Cambiar carpeta";mirrorData();updBkStatus();return true;
   }
 
-  if(!supported){
-    setChip("warn","Carpeta no disponible en este navegador");btn.style.display="none";return;
-  }
-
-  btn.addEventListener("click",async()=>{
+  // API pública: abrir el selector de carpeta (o reconectar la guardada). Devuelve true si quedó conectada.
+  window.projConnect=async function(){
+    if(!supported){ toast("Este navegador no permite conectar carpetas. Usa Chrome o Edge.",true); return false; }
     try{
       const saved=await hGet("projDirHandle");
-      if(saved && btn.textContent.indexOf("Reconectar")>=0){ if(await connect(saved,true))toast("Carpeta conectada ✓"); return; }
+      if(saved && (await saved.queryPermission({mode:"readwrite"}))!=="denied"){
+        if(await connect(saved,true)){ toast("Carpeta conectada ✓"); return true; }
+      }
       const handle=await window.showDirectoryPicker({mode:"readwrite",id:"des-proyecto"});
-      if(await connect(handle,true))toast("Carpeta del proyecto conectada ✓");
+      if(await connect(handle,true)){ toast("Carpeta del proyecto conectada ✓"); return true; }
     }catch(e){ if(e&&e.name!=="AbortError")toast("Tu navegador no permitió abrir la carpeta. Usa Chrome/Edge actualizado.",true); }
-  });
+    return false;
+  };
+
+  if(!supported){ updBkStatus(); return; }
 
   // Al iniciar: reusar la carpeta de la sesión anterior si el permiso sigue concedido.
   (async()=>{try{
     const saved=await hGet("projDirHandle");
-    if(!saved)return;
+    if(!saved){ updBkStatus(); return; }
     if(await saved.queryPermission({mode:"readwrite"})==="granted") await connect(saved,false);
-    else { setChip("warn","📁 "+saved.name+" · pulsa Reconectar"); btn.textContent="🔁 Reconectar carpeta"; }
-  }catch(e){}})();
+    else updBkStatus();
+  }catch(e){ updBkStatus(); }})();
 })();
 
 // ===================== AJUSTES DEL SISTEMA =====================
@@ -4760,14 +4757,22 @@ function openSettings(){
   $("sFirmaTrimBg").checked=CFG.firmaTrimBg!==false;
   renderLogoPreview();
   renderFirmaPreview();
-  // Reinicio parcial: mostrar conteos actuales y marcar por defecto
-  const rp1=$("rpProyectosCnt"); if(rp1) rp1.textContent=`(hay ${ventas.length} actualmente)`;
-  const rp2=$("rpPagosCnt"); if(rp2) rp2.textContent=`(hay ${comprobantes.length} comp. · ${bandeja.length} en bandeja)`;
-  if($("rpProyectos")) $("rpProyectos").checked=true;
-  if($("rpPagos")) $("rpPagos").checked=true;
+  if(window.projUpdBkStatus) window.projUpdBkStatus();
   $("settingsModal").classList.add("show");
 }
 function closeSettings(){$("settingsModal").classList.remove("show")}
+// Acordeón de Ajustes: despliega/colapsa cada sección
+function toggleAcc(btn){ btn.parentElement.classList.toggle("open"); }
+// Respaldar: si no hay carpeta conectada, primero pide elegirla; luego guarda TODO.
+async function guardarRespaldo(){
+  if(!(window.projConnected&&window.projConnected())){ if(window.projConnect) await window.projConnect(); }
+  await exportarTodo();
+}
+// Restaurar: si no hay carpeta conectada, primero pide elegirla; luego abre el selector de archivo.
+async function restaurarRespaldo(){
+  if(!(window.projConnected&&window.projConnected())){ if(window.projConnect) await window.projConnect(); }
+  $("importarTodoFile").click();
+}
 
 function saveSettings(){
   CFG.nombre=($("sNombre").value.trim()||SDEFAULTS.nombre);
