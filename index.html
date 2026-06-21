@@ -396,8 +396,16 @@
     /* Evita cualquier desbordamiento horizontal en el teléfono */
     html,body{overflow-x:hidden;max-width:100%}
 
-    /* Campos un poco más grandes para el dedo y evita el zoom de iOS al enfocar */
-    input,select,textarea,.sfield input,.sfield textarea,.sfield select{font-size:16px}
+    /* Que las rejillas y tarjetas puedan encogerse al ancho real del teléfono.
+       Sin esto, un campo o select "ancho" empuja el formulario más allá de la pantalla. */
+    .wrap,.grid,.card,fieldset,.field,.sfield,.row,.srow{min-width:0;max-width:100%}
+    .grid{grid-template-columns:1fr}
+    .grid>*,.row>*,.srow>*{min-width:0}
+
+    /* Campos: ocupan el ancho de su columna y nunca lo exceden. font 16px evita el zoom de iOS. */
+    input,select,textarea,.field input,.field select,.field textarea,.sfield input,.sfield textarea,.sfield select{font-size:16px;width:100%;max-width:100%;box-sizing:border-box}
+    /* Casillas y selectores tipo no se estiran */
+    input[type=checkbox],input[type=radio]{width:auto;max-width:none}
 
     /* ── Header + pestañas ── */
     /* Fondo sólido de borde a borde: el degradado se confundía con el fondo
@@ -2189,6 +2197,23 @@ window.DESAuth = DESAuth;
       <button class="btn ghost sm" onclick="closeSettings()">✕</button>
     </div>
 
+    <!-- ░░ Sección · Usuarios y sesión ░░ -->
+    <div class="acc">
+      <button type="button" class="acc-head" onclick="toggleAcc(this)">
+        <span class="acc-ico">👥</span><span class="acc-ttl">Usuarios y sesión</span><span class="acc-arrow">▸</span>
+      </button>
+      <div class="acc-body">
+        <div style="font-size:12.5px;color:var(--muted);margin-bottom:12px">Sesión actual: <strong id="setUserName" style="color:var(--navy)">—</strong></div>
+        <div class="noadmin-hide" style="margin-bottom:14px">
+          <p style="font-size:12px;color:var(--muted);margin:0 0 10px;line-height:1.55">Crea cuentas para tu equipo y define a qué pestañas puede entrar cada quien y si puede crear/editar/borrar o solo ver.</p>
+          <button class="btn primary sm" onclick="if(window.DESAuth)DESAuth.openUsers()">👥 Gestionar usuarios</button>
+        </div>
+        <div style="border-top:1px dashed var(--line);padding-top:13px">
+          <button class="btn sm" style="background:var(--danger);color:#fff;border:none" onclick="if(window.DESAuth)DESAuth.logout()">⎋ Cerrar sesión</button>
+        </div>
+      </div>
+    </div>
+
     <!-- ░░ Sección 1 · Empresa ░░ -->
     <div class="acc noadmin-hide">
       <button type="button" class="acc-head" onclick="toggleAcc(this)">
@@ -2304,23 +2329,6 @@ window.DESAuth = DESAuth;
           <input type="file" id="importarTodoFile" accept=".json" style="display:none" onchange="importarTodo(this)">
         </div>
         <p style="font-size:11px;color:var(--muted);margin:11px 0 0">Por seguridad, la clave de la API no se incluye en el respaldo (se vuelve a pegar si restauras en otro equipo).</p>
-      </div>
-    </div>
-
-    <!-- ░░ Sección 4 · Usuarios y sesión ░░ -->
-    <div class="acc">
-      <button type="button" class="acc-head" onclick="toggleAcc(this)">
-        <span class="acc-ico">👥</span><span class="acc-ttl">Usuarios y sesión</span><span class="acc-arrow">▸</span>
-      </button>
-      <div class="acc-body">
-        <div style="font-size:12.5px;color:var(--muted);margin-bottom:12px">Sesión actual: <strong id="setUserName" style="color:var(--navy)">—</strong></div>
-        <div class="noadmin-hide" style="margin-bottom:14px">
-          <p style="font-size:12px;color:var(--muted);margin:0 0 10px;line-height:1.55">Crea cuentas para tu equipo y define a qué pestañas puede entrar cada quien y si puede crear/editar/borrar o solo ver.</p>
-          <button class="btn primary sm" onclick="if(window.DESAuth)DESAuth.openUsers()">👥 Gestionar usuarios</button>
-        </div>
-        <div style="border-top:1px dashed var(--line);padding-top:13px">
-          <button class="btn sm" style="background:var(--danger);color:#fff;border:none" onclick="if(window.DESAuth)DESAuth.logout()">⎋ Cerrar sesión</button>
-        </div>
       </div>
     </div>
 
