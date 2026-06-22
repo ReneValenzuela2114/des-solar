@@ -8281,7 +8281,9 @@ function tramQuitarDoc(id,slot){
   const d=t.docs[slot];
   // Borrar de R2 solo si ningún otro registro (biblioteca u otro trámite) usa el mismo objeto
   r2DeleteSiLibre(d.r2Key, {tramId:id, slot});
-  delete t.docs[slot]; t.updatedAt=Date.now(); tramSave();
+  delete t.docs[slot];
+  if(slot==="cotizacion") t.noAutoCot=true;   // que no se vuelva a jalar sola la cotización del cliente
+  t.updatedAt=Date.now(); tramSave();
   tramRenderDetail(id);
 }
 function tramBorrar(id){
@@ -8518,6 +8520,7 @@ async function tramIAExtraer(d, prompt){
 }
 function tramAutoCotPdf(t){
   // Si no hay cotización asignada, jala el PDF de la cotización del cliente (si existe en el sistema)
+  if(t.noAutoCot) return;            // el usuario la quitó a mano: no volver a jalarla sola
   if(t.docs && t.docs.cotizacion) return;
   let pdf=null;
   const cot=cotizaciones.find(x=>x.id===t.cotId);
@@ -8539,35 +8542,40 @@ async function tramLeerIA(id){
   t.valores=t.valores||{};
   const limpio=x=> (x!=null && String(x).trim() && String(x).trim().toLowerCase()!=="null") ? String(x).trim() : "";
   toast("Leyendo documentos con IA… (puede tardar unos segundos)");
-  try{
-    if(docs.recibo){
-      const r=await tramIAExtraer(docs.recibo, 'Este es un recibo de energía eléctrica de Guatemala. Extrae y responde SOLO con JSON, sin texto extra: {"nombre":"nombre del titular","denominacion":"razón social si el titular es empresa, si no vacío","direccion":"dirección del inmueble","municipio":"","departamento":"","nis":"número de NIS","distribuidora":"nombre de la empresa distribuidora"}. Si un dato no aparece, ponlo como "".');
-      ["nombre","denominacion","direccion","municipio","departamento","nis","distribuidora"].forEach(k=>{ const val=limpio(r[k]); if(val) t.valores[k]=val; });
+  const LBL={recibo:"Recibo de luz", dpi:"DPI", cotizacion:"Cotización", extra:"Otros"};
+  const fallos=[];   // cada documento se lee por separado: uno dañado no corta a los demás
+  async function leerDoc(slot, fn){
+    if(!docs[slot]) return;
+    try{ const r=await tramIAExtraer(docs[slot], fn.prompt); fn.aplicar(r); }
+    catch(e){
+      const nm=(docs[slot].name?(" · "+docs[slot].name):"")+(docs[slot].autoCot?" (cotización automática del cliente)":"");
+      fallos.push((LBL[slot]||slot)+nm+": "+((e&&e.message)||e));
     }
-    if(docs.dpi){
-      const r=await tramIAExtraer(docs.dpi, 'Esta es una foto de un DPI (Documento Personal de Identificación) de Guatemala. Extrae y responde SOLO con JSON, sin texto extra: {"nombre":"nombre completo: nombres y apellidos","dpi":"número de CUI/DPI con guiones"}. Si un dato no aparece, ponlo como "".');
-      const nom=limpio(r.nombre), dpi=limpio(r.dpi);
-      if(nom) t.valores.nombre=nom;
-      if(dpi) t.valores.dpi=dpi;
-    }
-    if(docs.cotizacion){
-      const r=await tramIAExtraer(docs.cotizacion, 'Esta es una cotización de un sistema de paneles solares. Extrae y responde SOLO con JSON, sin texto extra: {"paneles":"cantidad de paneles solares (solo el número)","pot_panel":"potencia de cada panel en W, ej: 600W","pot_total":"potencia total en kW = la SUMA de la potencia de los INVERSORES (no de los paneles); ej: 2 inversores de 10kW = 20 KW","inversores":"descripción de los inversores tal como: cantidad marca potencia, ej: 2 Inversores HUAWEI 10KW","voltaje":"voltaje Voc y Vmp del panel si aparece"}. Si un dato no aparece, ponlo como "".');
-      ["paneles","pot_panel","pot_total","voltaje"].forEach(k=>{ const val=limpio(r[k]); if(val) t.valores[k]=val; });
-      const invD=limpio(r.inversores); if(invD) t.valores.desc2=invD;
-    }
-    if(docs.extra){
-      // "Otros": documento de apoyo libre (datasheet, otro recibo, etc.). Solo RELLENA campos vacíos, no pisa lo ya leído.
-      const r=await tramIAExtraer(docs.extra, 'Este es un documento de apoyo de un trámite de paneles solares en Guatemala (puede ser un recibo de luz, un DPI, un datasheet/ficha técnica de panel, una cotización u otro). Extrae todos los datos que encuentres y responde SOLO con JSON, sin texto extra: {"nombre":"nombre del titular/propietario","denominacion":"razón social si es empresa","direccion":"dirección del inmueble","municipio":"","departamento":"","nis":"número de NIS","distribuidora":"empresa distribuidora","dpi":"número de DPI/CUI con guiones","paneles":"cantidad de paneles (solo número)","pot_panel":"potencia de cada panel en W, ej: 600W","pot_total":"potencia total en kW = suma de la potencia de los INVERSORES","voltaje":"voltaje Voc y Vmp del panel","inversores":"descripción de inversores: cantidad marca potencia"}. Si un dato no aparece, ponlo como "".');
-      ["nombre","denominacion","direccion","municipio","departamento","nis","distribuidora","dpi","paneles","pot_panel","pot_total","voltaje"].forEach(k=>{ const val=limpio(r[k]); if(val && !limpio(t.valores[k])) t.valores[k]=val; });
-      const invD=limpio(r.inversores); if(invD && !limpio(t.valores.desc2)) t.valores.desc2=invD;
-    }
-    tramPrefill(t); tramSave();
-    tramRenderDetail(t.id);
-    tramRenderRevision(t);
+  }
+  await leerDoc("recibo", {
+    prompt:'Este es un recibo de energía eléctrica de Guatemala. Extrae y responde SOLO con JSON, sin texto extra: {"nombre":"nombre del titular","denominacion":"razón social si el titular es empresa, si no vacío","direccion":"dirección del inmueble","municipio":"","departamento":"","nis":"número de NIS","distribuidora":"nombre de la empresa distribuidora"}. Si un dato no aparece, ponlo como "".',
+    aplicar:r=>{ ["nombre","denominacion","direccion","municipio","departamento","nis","distribuidora"].forEach(k=>{ const val=limpio(r[k]); if(val) t.valores[k]=val; }); }
+  });
+  await leerDoc("dpi", {
+    prompt:'Esta es una foto de un DPI (Documento Personal de Identificación) de Guatemala. Extrae y responde SOLO con JSON, sin texto extra: {"nombre":"nombre completo: nombres y apellidos","dpi":"número de CUI/DPI con guiones"}. Si un dato no aparece, ponlo como "".',
+    aplicar:r=>{ const nom=limpio(r.nombre), dpi=limpio(r.dpi); if(nom) t.valores.nombre=nom; if(dpi) t.valores.dpi=dpi; }
+  });
+  await leerDoc("cotizacion", {
+    prompt:'Esta es una cotización de un sistema de paneles solares. Extrae y responde SOLO con JSON, sin texto extra: {"paneles":"cantidad de paneles solares (solo el número)","pot_panel":"potencia de cada panel en W, ej: 600W","pot_total":"potencia total en kW = la SUMA de la potencia de los INVERSORES (no de los paneles); ej: 2 inversores de 10kW = 20 KW","inversores":"descripción de los inversores tal como: cantidad marca potencia, ej: 2 Inversores HUAWEI 10KW","voltaje":"voltaje Voc y Vmp del panel si aparece"}. Si un dato no aparece, ponlo como "".',
+    aplicar:r=>{ ["paneles","pot_panel","pot_total","voltaje"].forEach(k=>{ const val=limpio(r[k]); if(val) t.valores[k]=val; }); const invD=limpio(r.inversores); if(invD) t.valores.desc2=invD; }
+  });
+  await leerDoc("extra", {
+    // "Otros": documento de apoyo libre (datasheet, otro recibo, etc.). Solo RELLENA campos vacíos, no pisa lo ya leído.
+    prompt:'Este es un documento de apoyo de un trámite de paneles solares en Guatemala (puede ser un recibo de luz, un DPI, un datasheet/ficha técnica de panel, una cotización u otro). Extrae todos los datos que encuentres y responde SOLO con JSON, sin texto extra: {"nombre":"nombre del titular/propietario","denominacion":"razón social si es empresa","direccion":"dirección del inmueble","municipio":"","departamento":"","nis":"número de NIS","distribuidora":"empresa distribuidora","dpi":"número de DPI/CUI con guiones","paneles":"cantidad de paneles (solo número)","pot_panel":"potencia de cada panel en W, ej: 600W","pot_total":"potencia total en kW = suma de la potencia de los INVERSORES","voltaje":"voltaje Voc y Vmp del panel","inversores":"descripción de inversores: cantidad marca potencia"}. Si un dato no aparece, ponlo como "".',
+    aplicar:r=>{ ["nombre","denominacion","direccion","municipio","departamento","nis","distribuidora","dpi","paneles","pot_panel","pot_total","voltaje"].forEach(k=>{ const val=limpio(r[k]); if(val && !limpio(t.valores[k])) t.valores[k]=val; }); const invD=limpio(r.inversores); if(invD && !limpio(t.valores.desc2)) t.valores.desc2=invD; }
+  });
+  tramPrefill(t); tramSave();
+  tramRenderDetail(t.id);
+  tramRenderRevision(t);
+  if(fallos.length){
+    toast("Se leyó lo demás ✓. No se pudo leer: "+fallos.join("  |  "), true);
+  }else{
     toast("Datos leídos ✓ · revisa y completa la tabla");
-  }catch(e){
-    tramPrefill(t); tramSave(); tramRenderDetail(t.id); tramRenderRevision(t);
-    toast("La IA no pudo leer todo: "+((e&&e.message)||e),true);
   }
 }
 
