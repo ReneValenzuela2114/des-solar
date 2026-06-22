@@ -6637,6 +6637,12 @@ function r2KeyEnUso(key, ig){
     for(const t of tramites){ const ds=t.docs||{}; for(const k in ds){ const d=ds[k];
       if(d&&d.r2Key===key){ const skip = ig&&ig.tramId===t.id && (ig.slot==null || ig.slot===k); if(!skip) return true; } } }
   }
+  // Proteger objetos compartidos: si la misma key vive en un producto, cotización, comprobante, bandeja o finanzas, NO borrarla.
+  if(typeof productos!=="undefined" && productos.some(p=>(p.archivos||[]).some(f=>f&&f.r2Key===key))) return true;
+  if(typeof cotizaciones!=="undefined" && cotizaciones.some(c=>c&&c.archivoPdf&&c.archivoPdf.r2Key===key)) return true;
+  if(typeof comprobantes!=="undefined" && comprobantes.some(c=>c&&c.r2Key===key)) return true;
+  if(typeof bandeja!=="undefined" && bandeja.some(it=>it&&it.r2Key===key)) return true;
+  if(typeof finanzas!=="undefined" && finanzas.some(m=>m&&m.comprobante&&m.comprobante.r2Key===key)) return true;
   return false;
 }
 // Borra de R2 solo si ningún otro registro lo usa (protege objetos compartidos)
@@ -8294,24 +8300,71 @@ function tramPickRender(){
   const t=tramites.find(x=>x.id===_tramPick.id); if(!t)return;
   const q=($("tramPickBuscar")&&$("tramPickBuscar").value||"").toLowerCase().trim();
   const list=(typeof archivos!=="undefined"?archivos:[]).filter(a=>a.clienteId===t.clienteId && (!q||(a.nombre||"").toLowerCase().includes(q))).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-  if(!list.length){ grid.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--muted);font-size:12.5px">Este cliente no tiene archivos en la biblioteca todavía. Súbelos primero en 📁 Archivos (o usa "Subir nuevo").</div>`; return; }
-  grid.innerHTML=list.map(a=>{
-    const thumb=archEsImagen(a)
-      ? `<div style="height:110px;background:var(--soft);background-image:url('${r2Url(a.r2Key)}');background-size:cover;background-position:center"></div>`
-      : archTipoBadge(a);
-    const cotp=a.proyectoId?cotizaciones.find(c=>c.id===a.proyectoId):null;
-    const proyTag=cotp?(cotp.numero||""):"";
-    return `<div class="card arch-pickcard" style="padding:0;overflow:hidden;cursor:pointer" onclick="tramPickChoose('${a.id}')" title="Elegir ${esc(a.nombre||"")}">
-      <div>${thumb}</div>
-      <div style="padding:8px 9px">
-        <div style="font-size:11px;font-weight:700;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(a.nombre||"")}">${esc(a.nombre||"")}</div>
-        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">
-          <span style="font-size:9px;font-weight:800;padding:1px 6px;border-radius:20px;background:rgba(23,99,182,.1);color:#1254a0">${esc(a.categoria||"Otro")}</span>
-          ${proyTag?`<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:20px;background:#fff;color:var(--muted)">${esc(proyTag)}</span>`:""}
+  // Datasheets del catálogo de productos: se reutilizan tal cual (no se vuelven a subir ni se duplican).
+  const prodCards=[];
+  (typeof productos!=="undefined"?productos:[]).forEach(p=>{
+    (p.archivos||[]).forEach((f,idx)=>{
+      if(!f || (!f.r2Key && !f.fid)) return;
+      const nm=(p.nombre||p.code||"Producto")+" "+(p.marca||"")+" "+(p.modelo||"")+" "+(f.name||"");
+      if(q && !nm.toLowerCase().includes(q)) return;
+      prodCards.push({p, f, idx});
+    });
+  });
+  const secHead=(txt,mt)=>`<div style="grid-column:1/-1;font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:${mt} 0 2px">${txt}</div>`;
+  let html="";
+  if(list.length){
+    html+=secHead("Biblioteca del cliente","2px");
+    html+=list.map(a=>{
+      const thumb=archEsImagen(a)
+        ? `<div style="height:110px;background:var(--soft);background-image:url('${r2Url(a.r2Key)}');background-size:cover;background-position:center"></div>`
+        : archTipoBadge(a);
+      const cotp=a.proyectoId?cotizaciones.find(c=>c.id===a.proyectoId):null;
+      const proyTag=cotp?(cotp.numero||""):"";
+      return `<div class="card arch-pickcard" style="padding:0;overflow:hidden;cursor:pointer" onclick="tramPickChoose('${a.id}')" title="Elegir ${esc(a.nombre||"")}">
+        <div>${thumb}</div>
+        <div style="padding:8px 9px">
+          <div style="font-size:11px;font-weight:700;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(a.nombre||"")}">${esc(a.nombre||"")}</div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">
+            <span style="font-size:9px;font-weight:800;padding:1px 6px;border-radius:20px;background:rgba(23,99,182,.1);color:#1254a0">${esc(a.categoria||"Otro")}</span>
+            ${proyTag?`<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:20px;background:#fff;color:var(--muted)">${esc(proyTag)}</span>`:""}
+          </div>
         </div>
-      </div>
-    </div>`;
-  }).join("");
+      </div>`;
+    }).join("");
+  }
+  if(prodCards.length){
+    html+=secHead("📄 Datasheets de productos (catálogo)","10px");
+    html+=prodCards.map(pc=>{
+      const sub=[pc.p.marca,pc.p.modelo].filter(Boolean).join(" ");
+      return `<div class="card arch-pickcard" style="padding:0;overflow:hidden;cursor:pointer" onclick="tramPickProducto('${pc.p.id}',${pc.idx})" title="Elegir ${esc(pc.p.nombre||"")} · ${esc(pc.f.name||"")}">
+        <div style="height:110px;display:flex;align-items:center;justify-content:center;background:var(--soft);font-size:30px">📄</div>
+        <div style="padding:8px 9px">
+          <div style="font-size:11px;font-weight:700;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(pc.p.nombre||pc.p.code||"")}">${esc(pc.p.nombre||pc.p.code||"")}</div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">
+            <span style="font-size:9px;font-weight:800;padding:1px 6px;border-radius:20px;background:rgba(34,139,34,.12);color:#1e7d32">Producto</span>
+            ${sub?`<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:20px;background:#fff;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px">${esc(sub)}</span>`:""}
+          </div>
+        </div>
+      </div>`;
+    }).join("");
+  }
+  if(!html){ grid.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--muted);font-size:12.5px">No hay archivos del cliente ni datasheets de productos${q?" que coincidan con la búsqueda":""}. Súbelos en 📁 Archivos o en el catálogo, o usa "Subir nuevo".</div>`; return; }
+  grid.innerHTML=html;
+}
+function tramPickProducto(prodId, idx){
+  if(!_tramPick) return;
+  const t=tramites.find(x=>x.id===_tramPick.id); if(!t)return;
+  const p=(typeof productos!=="undefined"?productos:[]).find(x=>x.id===prodId); if(!p)return;
+  const f=(p.archivos||[])[idx]; if(!f){ toast("No se encontró el datasheet del producto",true); return; }
+  const nm=f.name||((p.nombre||p.code||"producto")+".pdf");
+  t.docs=t.docs||{};
+  if(f.r2Key) t.docs[_tramPick.slot]={ r2Key:f.r2Key, name:nm, type:f.type||"application/pdf", prodRef:p.id };
+  else if(f.fid) t.docs[_tramPick.slot]={ idbFid:f.fid, name:nm, type:f.type||"application/pdf", prodRef:p.id };
+  else { toast("Ese producto no tiene el archivo disponible",true); return; }
+  t.updatedAt=Date.now(); tramSave();
+  tramPickClose();
+  tramRenderDetail(t.id);
+  toast("Datasheet del producto asignado ✓ (sin duplicar)");
 }
 function tramPickChoose(archivoId){
   if(!_tramPick) return;
