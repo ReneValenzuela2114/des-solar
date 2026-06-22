@@ -7725,7 +7725,7 @@ function uniLabelSVG(n){
   const hx=(anc==="middle")?(-w/2):(-6), hh=n.l2?(fs+24):(fs+10);
   let t=`<g class="uni-label" data-nid="${n.id}" transform="translate(${lx},${ly})"><rect x="${hx}" y="${-(fs/2)-6}" width="${w}" height="${hh}" fill="transparent" pointer-events="all"/>`;
   t+=`<text text-anchor="${anc}" dominant-baseline="middle" font-size="${fs}" font-weight="${fw}" fill="${TP}">${uniEsc(n.l1)}</text>`;
-  if(n.l2) t+=`<text y="15" text-anchor="${anc}" dominant-baseline="middle" font-size="${fs2}" fill="${TP}">${uniEsc(n.l2)}</text>`;
+  if(n.l2) t+=`<text y="15" text-anchor="${anc}" dominant-baseline="middle" font-size="${fs2}" font-weight="${fw}" fill="${TP}">${uniEsc(n.l2)}</text>`;
   return t+`</g>`;
 }
 function uniMbHeight(){
