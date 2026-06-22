@@ -402,6 +402,14 @@
     .grid{grid-template-columns:1fr}
     .grid>*,.row>*,.srow>*{min-width:0}
 
+    /* Rejillas de varias columnas (definidas en línea) que deben apilarse en el teléfono */
+    .m-1col{grid-template-columns:1fr !important}
+    .m-2col{grid-template-columns:repeat(2,1fr) !important}
+    /* Panel del generador unifilar: ancho completo, no fijo a 372px */
+    .unipanel{flex:1 1 100% !important;min-width:0 !important;width:100%}
+    /* Proyectos → Pagos: los dos paneles (bandeja / movimientos) a ancho completo */
+    #pagoBandejaView>div{flex:1 1 100% !important;min-width:0 !important}
+
     /* Campos: ocupan el ancho de su columna y nunca lo exceden. font 16px evita el zoom de iOS. */
     input,select,textarea,.field input,.field select,.field textarea,.sfield input,.sfield textarea,.sfield select{font-size:16px;width:100%;max-width:100%;box-sizing:border-box}
     /* Casillas y selectores tipo no se estiran */
@@ -1178,7 +1186,7 @@ window.DESAuth = DESAuth;
             </div>
             <div id="qClienteChosen" style="margin-top:8px;display:none"></div>
           </div>
-          <div class="row" style="grid-template-columns:1fr 1fr 1fr">
+          <div class="row m-1col" style="grid-template-columns:1fr 1fr 1fr">
             <div class="field"><label>NIS / Correlativo</label><input id="qNis" placeholder="Ej. NIS contador o correlativo"></div>
             <div class="field"><label>Fecha</label><input id="qFecha" type="date"></div>
             <div class="field"><label class="lblauto">No. de cotización <span class="at">Auto</span></label><input id="qNumero" class="auto" readonly tabindex="-1" placeholder="Automático"></div>
@@ -1575,7 +1583,7 @@ window.DESAuth = DESAuth;
           <h3 id="finFormTitle" style="margin:0;font-size:14px;font-weight:800;color:var(--navy)">Nuevo movimiento</h3>
           <span style="font-size:11px;color:var(--muted)">Elige a qué categoría va</span>
         </div>
-        <div style="display:grid;grid-template-columns:120px 1fr 150px;gap:8px;align-items:end;margin-bottom:9px">
+        <div class="m-1col" style="display:grid;grid-template-columns:120px 1fr 150px;gap:8px;align-items:end;margin-bottom:9px">
           <div class="field" style="margin:0"><label style="font-size:10px;font-weight:700">Fecha</label><input id="finFecha" type="date" style="font-size:12px;padding:5px 7px"></div>
           <div class="field" style="margin:0"><label style="font-size:10px;font-weight:700">Descripción</label><input id="finDesc" type="text" placeholder="Ej. Comix Mario, Préstamo..." style="font-size:12px;padding:5px 7px"></div>
           <div class="field" style="margin:0"><label style="font-size:10px;font-weight:700">Tipo</label>
@@ -1585,7 +1593,7 @@ window.DESAuth = DESAuth;
             </select>
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:150px 1fr 150px;gap:8px;align-items:end">
+        <div class="m-1col" style="display:grid;grid-template-columns:150px 1fr 150px;gap:8px;align-items:end">
           <div class="field" style="margin:0"><label style="font-size:10px;font-weight:700">Monto (Q)</label><input id="finMonto" type="number" min="0" step="any" class="no-spin" placeholder="0.00" oninput="finRenderCompRow()" style="font-size:12px;padding:5px 7px"></div>
           <div class="field" style="margin:0"><label style="font-size:10px;font-weight:700">Categoría</label>
             <select id="finCat" style="font-size:12px;padding:5px 7px">
@@ -5484,7 +5492,7 @@ function vopen(cotId){window._currentCotId=cotId;
         </div>
         <select class="vest" style="border-color:${ec};color:${ec}" onchange="vChangeEstado('${cotId}',this.value)">${eOpts}</select>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px">
+      <div class="m-2col" style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:3px 8px;background:var(--soft);border-radius:7px">
           <div style="font-size:8.5px;font-weight:800;color:var(--muted);letter-spacing:.4px;white-space:nowrap">COTIZADO</div>
           <div style="font-size:12px;font-weight:800;color:var(--navy);white-space:nowrap">${moneyGTQ(total)}</div>
