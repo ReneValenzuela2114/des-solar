@@ -9107,12 +9107,21 @@ function archCtxMenu(e,id){
   m.style.left=Math.max(8,x)+"px"; m.style.top=Math.max(8,y)+"px";
 }
 function archCtxClose(){ const m=$("archCtx"); if(m) m.style.display="none"; }
+// ¿El usuario actual puede EDITAR Archivos (mover/editar/eliminar)? Con login: admin o perm "editar".
+// Sin login (modo local): respeta el rol local desRole.
+function archPuedeEditar(){
+  var u=window.DES_USER;
+  if(u && typeof u.is_admin!=="undefined"){
+    return !!u.is_admin || !!(u.perms && u.perms.archivos==="editar");
+  }
+  return (typeof desRole==="undefined"||desRole==="admin");
+}
 function archCtxRenderMain(){
   const m=$("archCtx"); if(!m) return;
   const n=_archCtxIds.length;
   let esPdf=false;
   if(n===1){ const a=archivos.find(x=>x.id===_archCtxIds[0]); esPdf=!!(a&&(/\.pdf$/i.test(a.nombre||"")||/pdf/i.test(a.tipo||""))); }
-  const adm=(typeof desRole==="undefined"||desRole==="admin");   // socio/instalador: solo ver y descargar
+  const adm=archPuedeEditar();   // sin permiso de editar: solo ver y descargar
   m.innerHTML=`<div class="ctx-h">${n} archivo(s)</div>`+
     (n===1?`<div class="ctx-i" onclick="archCtxVer()">👁 Ver</div>`:"")+
     `<div class="ctx-i" onclick="archCtxDescargar()">⬇ Descargar</div>`+
@@ -9214,6 +9223,7 @@ function archCtxMover(cat){
   toast(`${n} archivo(s) movido(s) a "${cat}" ✓`);
 }
 function archCtxEliminar(){
+  if(!archPuedeEditar()){ archCtxClose(); toast("No tienes permiso para eliminar archivos.",true); return; }
   const ids=_archCtxIds.slice(); archCtxClose();
   if(!confirm(`¿Eliminar ${ids.length} archivo(s)? No se puede deshacer.`)) return;
   ids.forEach(id=>{ const a=archivos.find(x=>x.id===id); if(a&&a.r2Key) r2DeleteSiLibre(a.r2Key,{archivoId:id}); archSel.delete(id); });
