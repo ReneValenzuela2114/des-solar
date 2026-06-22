@@ -1898,8 +1898,8 @@ window.DESAuth = DESAuth;
     </div>
   </div>
 
-  <!-- Zona de carga -->
-  <div class="card" style="padding:0;margin-bottom:14px">
+  <!-- Zona de carga (solo para quien puede editar Archivos) -->
+  <div class="card" id="archUploadCard" style="padding:0;margin-bottom:14px">
     <div id="archDrop" style="border:2px dashed var(--line);border-radius:14px;margin:14px;padding:22px 16px;text-align:center;background:var(--soft);cursor:pointer"
       onclick="archTriggerUpload()"
       ondragover="event.preventDefault();this.style.borderColor='var(--blue)'"
@@ -8879,6 +8879,8 @@ function archInit(){
   archFillClientesSel($("archCliente"), true);
   archFillCats($("archCategoria"), true);
   archFillProyectos($("archProyecto"), $("archCliente").value, true);
+  // La zona de carga se muestra a quien puede subir (admin, "editar" o "ver"). "none" no.
+  const upCard=$("archUploadCard"); if(upCard) upCard.style.display = archPuedeSubir() ? "" : "none";
   archRender();
   archSetupRubber();
 }
@@ -8907,16 +8909,19 @@ function archOnClienteChange(){
   archRender();
 }
 function archTriggerUpload(){
+  if(!archPuedeSubir()){ toast("Tu usuario no tiene permiso para subir archivos.",true); return; }
   if(!$("archCliente").value){ toast("Elige primero un cliente arriba para subir sus archivos",true); return; }
   const i=$("archInput"); if(i){ i.value=""; i.click(); }
 }
 function archOnDrop(e){
   e.preventDefault();
   const d=$("archDrop"); if(d) d.style.borderColor="var(--line)";
+  if(!archPuedeSubir()){ toast("Tu usuario no tiene permiso para subir archivos.",true); return; }
   if(!$("archCliente").value){ toast("Elige primero un cliente arriba",true); return; }
   archUploadFiles(e.dataTransfer.files);
 }
 async function archUploadFiles(files){
+  if(!archPuedeSubir()){ toast("Tu usuario no tiene permiso para subir archivos.",true); return; }
   const cid=$("archCliente").value;
   if(!cid){ toast("Elige un cliente primero",true); return; }
   if(!r2On()){ toast("R2 no está configurado",true); return; }
@@ -9107,14 +9112,22 @@ function archCtxMenu(e,id){
   m.style.left=Math.max(8,x)+"px"; m.style.top=Math.max(8,y)+"px";
 }
 function archCtxClose(){ const m=$("archCtx"); if(m) m.style.display="none"; }
-// ¿El usuario actual puede EDITAR Archivos (mover/editar/eliminar)? Con login: admin o perm "editar".
-// Sin login (modo local): respeta el rol local desRole.
+// ¿El usuario actual puede EDITAR Archivos (mover / editar etiquetas / ELIMINAR)?
+// Solo admin o permiso "editar".
 function archPuedeEditar(){
   var u=window.DES_USER;
   if(u && typeof u.is_admin!=="undefined"){
     return !!u.is_admin || !!(u.perms && u.perms.archivos==="editar");
   }
   return (typeof desRole==="undefined"||desRole==="admin");
+}
+// ¿Puede SUBIR archivos? También quien tiene "ver" (sube pero no borra). "none" no.
+function archPuedeSubir(){
+  var u=window.DES_USER;
+  if(u && typeof u.is_admin!=="undefined"){
+    return !!u.is_admin || !!(u.perms && (u.perms.archivos==="ver" || u.perms.archivos==="editar"));
+  }
+  return (typeof desRole==="undefined"||desRole==="admin"||desRole==="instalador");
 }
 function archCtxRenderMain(){
   const m=$("archCtx"); if(!m) return;
