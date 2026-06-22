@@ -411,6 +411,18 @@
     /* Proyectos → Pagos: los dos paneles (bandeja / movimientos) a ancho completo */
     #pagoBandejaView>div{flex:1 1 100% !important;min-width:0 !important}
 
+    /* Finanzas → Movimientos: en el teléfono cada fila se ve como tarjeta (etiqueta: valor),
+       sin scroll horizontal. */
+    #finLedger>div{overflow-x:visible}
+    #finLedger .vled,#finLedger .vled tbody,#finLedger .vled tr,#finLedger .vled td{display:block;width:100%}
+    #finLedger .vled thead{display:none}
+    #finLedger .vled tr{border:1px solid var(--line);border-radius:11px;padding:7px 12px;margin-bottom:9px;background:#fff}
+    #finLedger .vled tr:hover td{background:transparent}
+    #finLedger .vled td{border:none !important;padding:3px 0 !important;text-align:left !important;font-size:13px !important;display:flex;justify-content:space-between;gap:12px;align-items:baseline;white-space:normal !important}
+    #finLedger .vled td.fin-mt{display:none}
+    #finLedger .vled td[data-l]:not([data-l=""])::before{content:attr(data-l);font-weight:700;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;flex-shrink:0}
+    #finLedger .vled td[data-l=""]{justify-content:flex-end;gap:8px;padding-top:7px !important;margin-top:4px;border-top:1px dashed var(--line) !important}
+
     /* Campos: ocupan el ancho de su columna y nunca lo exceden. font 16px evita el zoom de iOS. */
     input,select,textarea,.field input,.field select,.field textarea,.sfield input,.sfield textarea,.sfield select{font-size:16px;width:100%;max-width:100%;box-sizing:border-box}
     /* Casillas y selectores tipo no se estiran */
@@ -6946,13 +6958,13 @@ function finRenderLedger(){
       const ent=parseFloat(m.entrada)||0, sal=parseFloat(m.salida)||0;
       const done=m.estado==='completado';
       return `<tr>
-        <td style="padding:5px 6px;color:var(--muted);font-size:12px;white-space:nowrap">${fmtDate(m.fecha)||"—"}</td>
-        <td style="padding:5px 6px;font-size:12px">${esc(m.descripcion||"")}${m.origen==='liberacion'?' <span style="font-size:9px;color:var(--blue);font-weight:700" title="Liberación de fondos">💸</span>':''}</td>
-        <td style="padding:5px 6px;font-size:11px;color:var(--navy);font-weight:700">${finCatLabel(m.categoria)}</td>
-        <td style="padding:5px 6px;text-align:right;color:var(--green);font-weight:700;font-size:12px">${ent>0?moneyGTQ(ent):""}</td>
-        <td style="padding:5px 6px;text-align:right;color:#e74c3c;font-weight:700;font-size:12px">${sal>0?moneyGTQ(sal):""}</td>
-        <td style="padding:5px 6px;text-align:center"><span onclick="finToggleEstado('${m.id}')" title="Cambiar estado" style="cursor:pointer;font-size:10px;font-weight:800;padding:2px 7px;border-radius:20px;${done?'background:rgba(21,127,76,.13);color:var(--green)':'background:rgba(230,180,0,.18);color:#b8860b'}">${done?'✓ Listo':'⏳ Pdte'}</span></td>
-        <td style="padding:5px 6px;text-align:center;white-space:nowrap">
+        <td data-l="Fecha" style="padding:5px 6px;color:var(--muted);font-size:12px;white-space:nowrap">${fmtDate(m.fecha)||"—"}</td>
+        <td data-l="Descripción" style="padding:5px 6px;font-size:12px">${esc(m.descripcion||"")}${m.origen==='liberacion'?' <span style="font-size:9px;color:var(--blue);font-weight:700" title="Liberación de fondos">💸</span>':''}</td>
+        <td data-l="Categoría" style="padding:5px 6px;font-size:11px;color:var(--navy);font-weight:700">${finCatLabel(m.categoria)}</td>
+        <td data-l="Entrada" class="${ent>0?'':'fin-mt'}" style="padding:5px 6px;text-align:right;color:var(--green);font-weight:700;font-size:12px">${ent>0?moneyGTQ(ent):""}</td>
+        <td data-l="Salida" class="${sal>0?'':'fin-mt'}" style="padding:5px 6px;text-align:right;color:#e74c3c;font-weight:700;font-size:12px">${sal>0?moneyGTQ(sal):""}</td>
+        <td data-l="Estado" style="padding:5px 6px;text-align:center"><span onclick="finToggleEstado('${m.id}')" title="Cambiar estado" style="cursor:pointer;font-size:10px;font-weight:800;padding:2px 7px;border-radius:20px;${done?'background:rgba(21,127,76,.13);color:var(--green)':'background:rgba(230,180,0,.18);color:#b8860b'}">${done?'✓ Listo':'⏳ Pdte'}</span></td>
+        <td data-l="" style="padding:5px 6px;text-align:center;white-space:nowrap">
           ${m.comprobante?`<button class="lx" title="Ver comprobante" onclick="finViewMovComp('${m.id}')">🖼</button>`:''}
           <button class="lx admin-only" title="Editar" onclick="finEditMov('${m.id}')">✎</button>
           <button class="lx admin-only" title="Eliminar" onclick="finDelMov('${m.id}')">✕</button>
