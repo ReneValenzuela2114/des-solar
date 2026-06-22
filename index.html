@@ -488,6 +488,13 @@
     .actions{flex-direction:column}
     .actions .btn{width:100%}
   }
+  /* Tabla "Revisar datos" (trámite/Excel): SOLO en móvil, reparte las columnas para que "Valor" se vea bien. En escritorio queda igual. */
+  @media(max-width:600px){
+    #tramRevision table{table-layout:fixed}
+    #tramRevision td:nth-child(1),#tramRevision th:nth-child(1){white-space:normal!important;width:42%;word-break:break-word}
+    #tramRevision td:nth-child(2),#tramRevision th:nth-child(2){width:40%}
+    #tramRevision td:nth-child(3),#tramRevision th:nth-child(3){white-space:normal!important;width:18%;word-break:break-word}
+  }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
