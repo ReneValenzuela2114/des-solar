@@ -405,6 +405,7 @@
     /* Rejillas de varias columnas (definidas en línea) que deben apilarse en el teléfono */
     .m-1col{grid-template-columns:1fr !important}
     .m-2col{grid-template-columns:repeat(2,1fr) !important}
+    .m-1col>*,.m-2col>*{min-width:0}
     /* Panel del generador unifilar: ancho completo, no fijo a 372px */
     .unipanel{flex:1 1 100% !important;min-width:0 !important;width:100%}
     /* Proyectos → Pagos: los dos paneles (bandeja / movimientos) a ancho completo */
@@ -1575,7 +1576,7 @@ window.DESAuth = DESAuth;
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:14px;align-items:start">
+  <div class="m-1col" style="display:grid;grid-template-columns:1.2fr 1fr;gap:14px;align-items:start">
     <!-- IZQUIERDA: form + libro de movimientos -->
     <div>
       <div class="card" style="padding:14px 16px;margin-bottom:14px">
