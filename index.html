@@ -2353,6 +2353,18 @@ window.DESAuth = DESAuth;
       </div>
     </div>
 
+    <!-- ░░ Sección · Archivos en la nube (R2) ░░ -->
+    <div class="acc noadmin-hide">
+      <button type="button" class="acc-head" onclick="toggleAcc(this)">
+        <span class="acc-ico">☁️</span><span class="acc-ttl">Archivos en la nube (R2)</span><span class="acc-arrow">▸</span>
+      </button>
+      <div class="acc-body">
+        <p style="font-size:12px;color:var(--muted);margin:0 0 11px;line-height:1.55">Revisa todos los archivos guardados (recibos, DPI, cotizaciones, comprobantes, biblioteca…) y detecta cuáles se perdieron de la nube. Los <strong>perdidos</strong> son referencias cuyo archivo ya no existe en R2: hay que volver a subirlos.</p>
+        <button class="btn primary sm" id="r2DiagBtn" onclick="r2Diagnostico()">🔎 Revisar archivos en la nube</button>
+        <div id="r2DiagOut" style="margin-top:12px;font-size:12px;line-height:1.5"></div>
+      </div>
+    </div>
+
     <div class="actions" style="margin-top:18px">
       <button class="btn primary admin-only noadmin-hide" onclick="saveSettings()">💾 Guardar ajustes</button>
       <button class="btn ghost" onclick="closeSettings()">Cancelar</button>
@@ -6680,6 +6692,52 @@ async function migrarBauchersR2(){
   if(est) est.textContent=`Listo · ${ok} subido(s) a R2${fail?(" · "+fail+" con error (siguen en el navegador)"):""} ✓`;
   toast(`Migración: ${ok} baucher(s) en R2${fail?(", "+fail+" fallaron"):""}`, fail>0);
   if(typeof pagosRenderAll==="function") pagosRenderAll();
+}
+
+/* ---- Diagnóstico R2: revisa qué archivos se perdieron de la nube (r2Key muertos) ---- */
+async function r2Diagnostico(){
+  const out=$("r2DiagOut"), btn=$("r2DiagBtn");
+  if(!out) return;
+  if(!r2On()){ out.innerHTML='<span style="color:var(--danger)">Primero inicia sesión (la nube R2 usa tu sesión). Cierra y vuelve a abrir sesión si hace falta.</span>'; return; }
+  const cliNom=id=>{ const c=(typeof clientes!=="undefined"?clientes:[]).find(x=>x.id===id); return c?(c.nombre||c.empresa||""):""; };
+  const refs=[];
+  const add=(key,label)=>{ if(key) refs.push({key:String(key), label}); };
+  (typeof bandeja!=="undefined"?bandeja:[]).forEach(it=>{ if(it&&it.r2Key) add(it.r2Key, "Pago en bandeja · "+(it.name||"sin nombre")); });
+  (typeof comprobantes!=="undefined"?comprobantes:[]).forEach(c=>{ if(c&&c.r2Key) add(c.r2Key, "Comprobante · "+(c.nombre||"sin nombre")); });
+  (typeof finanzas!=="undefined"?finanzas:[]).forEach(m=>{ const c=m&&m.comprobante; if(c&&c.r2Key) add(c.r2Key, "Finanzas · "+(c.name||"comprobante")); });
+  (typeof cotizaciones!=="undefined"?cotizaciones:[]).forEach(c=>{ const p=c&&c.archivoPdf; if(p&&p.r2Key) add(p.r2Key, "Cotización "+(c.numero||c.codigo||"")+" · "+(p.name||"PDF")+(cliNom(c.clienteId)?(" · "+cliNom(c.clienteId)):"")); });
+  (typeof tramites!=="undefined"?tramites:[]).forEach(t=>{ const d=t&&t.docs; if(d) Object.keys(d).forEach(slot=>{ const o=d[slot]; if(o&&o.r2Key) add(o.r2Key, "Trámite · "+slot+" · "+(o.name||"")+(cliNom(t.clienteId)?(" · "+cliNom(t.clienteId)):"")); }); });
+  (typeof archivos!=="undefined"?archivos:[]).forEach(a=>{ if(a&&a.r2Key) add(a.r2Key, "Biblioteca · "+(a.nombre||"sin nombre")+(cliNom(a.clienteId)?(" · "+cliNom(a.clienteId)):"")); });
+  try{ const tpl=(typeof tramTplKey==="function")?tramTplKey():""; if(tpl) add(tpl, "Plantilla del formulario (Excel)"); }catch(e){}
+  if(!refs.length){ out.innerHTML="No hay archivos en la nube que revisar."; return; }
+  const byKey={}; refs.forEach(r=>{ (byKey[r.key]=byKey[r.key]||[]).push(r.label); });
+  const keys=Object.keys(byKey);
+  if(btn) btn.disabled=true;
+  const muertos=[]; let okCount=0;
+  for(let i=0;i<keys.length;i++){
+    out.innerHTML="Revisando "+(i+1)+" de "+keys.length+"…";
+    const key=keys[i]; let dead=false, status=0;
+    try{ const r=await fetch(r2Url(key)); status=r.status; dead=!r.ok; try{ if(r.body&&r.body.cancel) r.body.cancel(); }catch(_){ } }
+    catch(e){ dead=true; status=-1; }
+    if(dead){ muertos.push({key, status, labels:byKey[key]}); } else okCount++;
+  }
+  if(btn) btn.disabled=false;
+  if(!muertos.length){ out.innerHTML='<div style="color:var(--green);font-weight:700">✓ Todos los archivos están bien ('+okCount+' revisados). Nada que resubir.</div>'; return; }
+  let html="";
+  if(muertos.every(m=>m.status===401)){
+    html+='<div style="color:var(--danger);font-weight:700;margin-bottom:6px">Tu sesión no está activa (todos dieron "no autorizado").</div><div style="font-size:12px;color:var(--muted);margin-bottom:10px">Cierra sesión y vuelve a entrar, luego corre la revisión otra vez. No son archivos perdidos.</div>';
+  }
+  html+='<div style="color:var(--danger);font-weight:700;margin-bottom:6px">⚠ '+muertos.length+' archivo(s) perdido(s) en la nube · '+okCount+' bien</div>';
+  html+='<div style="font-size:11.5px;color:var(--muted);margin-bottom:8px">Referenciados en la app pero el archivo ya no existe en R2. Vuelve a subirlos:</div>';
+  html+='<div style="display:flex;flex-direction:column;gap:6px">';
+  muertos.forEach(m=>{
+    const tag = m.status===401?"sesión": m.status===404?"no existe": m.status===-1?"sin conexión":("HTTP "+m.status);
+    html+='<div style="border:1px solid var(--line);border-left:3px solid var(--danger);border-radius:8px;padding:7px 9px;background:var(--soft)">';
+    m.labels.forEach(l=>{ html+='<div style="font-weight:600;color:var(--navy)">'+esc(l)+'</div>'; });
+    html+='<div style="font-size:10.5px;color:var(--muted);margin-top:2px">'+tag+' · '+esc(m.key)+'</div></div>';
+  });
+  html+='</div>';
+  out.innerHTML=html;
 }
 
 // Ver imagen de comprobante
