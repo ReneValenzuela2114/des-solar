@@ -7755,12 +7755,12 @@ function uniRender(){
   // Membrete compacto arriba-izquierda
   const vis=uniMembrete.filter(f=>f.show && ((f.value||"").trim()||(f.label||"").trim()));
   const mbH=uniMbHeight(), mbW=320, mbX=24, mbY=24, lineH=uniMbFont.size+8;
-  const fam=uniMbFont.fam.replace(/"/g,""), fw=uniMbFont.bold?"600":"400";
+  const fam=uniMbFont.fam.replace(/"/g,""), fw=uniMbFont.bold?"700":"600";
   let yy=mbY+14+uniMbFont.size; let lineas="";
   vis.forEach(f=>{
     const lbl=(f.label||"").trim();
-    const txt = f.t ? `<tspan font-weight="600">${uniEsc(f.value)}</tspan>`
-                    : (lbl? `<tspan fill="#13283f" font-weight="600">${uniEsc(lbl)}: </tspan><tspan font-weight="${fw}">${uniEsc(f.value)}</tspan>` : `<tspan font-weight="${fw}">${uniEsc(f.value)}</tspan>`);
+    const txt = f.t ? `<tspan font-weight="700">${uniEsc(f.value)}</tspan>`
+                    : (lbl? `<tspan fill="#13283f" font-weight="${fw}">${uniEsc(lbl)}: </tspan><tspan font-weight="${fw}">${uniEsc(f.value)}</tspan>` : `<tspan font-weight="${fw}">${uniEsc(f.value)}</tspan>`);
     const sz = f.t ? (uniMbFont.size+2) : (f.sub? (uniMbFont.size) : uniMbFont.size);
     lineas+=`<text x="${mbX+12}" y="${yy}" font-size="${sz}" fill="#13283f">${txt}</text>`;
     yy+=lineH;
