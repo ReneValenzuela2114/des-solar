@@ -7725,7 +7725,7 @@ function uniLabelSVG(n){
   const hx=(anc==="middle")?(-w/2):(-6), hh=n.l2?(fs+24):(fs+10);
   let t=`<g class="uni-label" data-nid="${n.id}" transform="translate(${lx},${ly})"><rect x="${hx}" y="${-(fs/2)-6}" width="${w}" height="${hh}" fill="transparent" pointer-events="all"/>`;
   t+=`<text text-anchor="${anc}" dominant-baseline="middle" font-size="${fs}" font-weight="${fw}" fill="${TP}">${uniEsc(n.l1)}</text>`;
-  if(n.l2) t+=`<text y="15" text-anchor="${anc}" dominant-baseline="middle" font-size="${fs2}" fill="${TS}">${uniEsc(n.l2)}</text>`;
+  if(n.l2) t+=`<text y="15" text-anchor="${anc}" dominant-baseline="middle" font-size="${fs2}" fill="${TP}">${uniEsc(n.l2)}</text>`;
   return t+`</g>`;
 }
 function uniMbHeight(){
@@ -7760,7 +7760,7 @@ function uniRender(){
   vis.forEach(f=>{
     const lbl=(f.label||"").trim();
     const txt = f.t ? `<tspan font-weight="600">${uniEsc(f.value)}</tspan>`
-                    : (lbl? `<tspan fill="#5a6b80">${uniEsc(lbl)}: </tspan><tspan font-weight="${fw}">${uniEsc(f.value)}</tspan>` : `<tspan font-weight="${fw}">${uniEsc(f.value)}</tspan>`);
+                    : (lbl? `<tspan fill="#13283f" font-weight="600">${uniEsc(lbl)}: </tspan><tspan font-weight="${fw}">${uniEsc(f.value)}</tspan>` : `<tspan font-weight="${fw}">${uniEsc(f.value)}</tspan>`);
     const sz = f.t ? (uniMbFont.size+2) : (f.sub? (uniMbFont.size) : uniMbFont.size);
     lineas+=`<text x="${mbX+12}" y="${yy}" font-size="${sz}" fill="#13283f">${txt}</text>`;
     yy+=lineH;
