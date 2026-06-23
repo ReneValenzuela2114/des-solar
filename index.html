@@ -1265,6 +1265,16 @@ window.DESAuth = DESAuth;
           <div class="totbox" id="qTotBox"></div>
         </fieldset>
 
+        <div style="margin:2px 0 16px">
+          <button type="button" id="qDescToggle" onclick="qDescToggleFn()" style="background:transparent;border:none;padding:0;font-size:12.5px;color:var(--blue);cursor:pointer;font-weight:700;display:flex;align-items:center;gap:5px">
+            <span id="qDescArrow">▶</span> Descripción del proyecto (opcional)
+          </button>
+          <div id="qDescBody" style="display:none;margin-top:9px">
+            <label class="ivarow" style="margin-bottom:8px"><input type="checkbox" id="qDescProyectoOn"><span class="ivl">Mostrar en el PDF</span><span class="ivh">arriba de los materiales, en negro</span></label>
+            <textarea id="qDescProyecto" rows="4" placeholder="Describe el proyecto: alcance, ubicación, objetivo… Aparecerá en el PDF arriba de la tabla de materiales." style="width:100%;box-sizing:border-box;resize:vertical"></textarea>
+          </div>
+        </div>
+
         <fieldset id="fsEnergy" style="padding:10px 14px 12px">
           <legend>Cálculo de energía</legend>
           <!-- Fila 1 -->
@@ -4055,6 +4065,8 @@ function buildCotData(){
     pago:$("qPago").value.trim(),
     aplicaIVA:$("qIVA").checked,
     notas:$("qNotas").value.trim(),
+    descProyecto:$("qDescProyecto")?$("qDescProyecto").value.trim():"",
+    descProyectoOn:$("qDescProyectoOn")?$("qDescProyectoOn").checked:false,
     items:qLines.map(l=>({tipo:l.tipo,refId:l.refId,refCode:l.refCode,descripcion:l.descripcion,unidad:l.unidad,
       cantidad:Number(l.cantidad)||0,precioUnit:Number(l.precioUnit)||0,precios:l.precios,fuente:l.fuente,pdf:l.pdf!==false,potenciaW:l.potenciaW||0,pdfQty1:!!l.pdfQty1})),
     totales:{subtotal:t.subtotal,descGlobal:t.descGlobal,base:t.base,iva:t.iva,total:t.total},
@@ -4094,10 +4106,28 @@ function cotResetForm(){
   $("qEntrega").value=COT_TEXTS.entrega;
   $("qPago").value=COT_TEXTS.pago;
   $("qNotas").value=COT_TEXTS.notas;
+  if($("qDescProyecto")) $("qDescProyecto").value="";
+  if($("qDescProyectoOn")) $("qDescProyectoOn").checked=false;
+  if($("qDescBody")) $("qDescBody").style.display="none";
+  if($("qDescArrow")) $("qDescArrow").textContent="▶";
   fillSelect("qVendedor","vendedor",{includeBlank:optsFor("vendedor").length===0,blankLabel:"— Crea uno con ＋ —"});
   $("qClienteSearch").style.display="";
   renderTotals();
   updateTextsHint();
+}
+function qDescToggleFn(){
+  const b=$("qDescBody"), a=$("qDescArrow"); if(!b)return;
+  const open=b.style.display==="none";
+  b.style.display=open?"block":"none";
+  if(a) a.textContent=open?"▼":"▶";
+}
+function qFillDesc(c){
+  const txt=(c&&c.descProyecto)||"", on=!!(c&&c.descProyectoOn);
+  if($("qDescProyecto")) $("qDescProyecto").value=txt;
+  if($("qDescProyectoOn")) $("qDescProyectoOn").checked=on;
+  const show=on||!!txt.trim();
+  if($("qDescBody")) $("qDescBody").style.display=show?"block":"none";
+  if($("qDescArrow")) $("qDescArrow").textContent=show?"▼":"▶";
 }
 
 // ---- Lista ----
@@ -4194,6 +4224,7 @@ function qedit(id){
   $("qVendedor").value=c.vendedor||"";
   $("qEntrega").value=c.entrega||COT_TEXTS.entrega;$("qPago").value=c.pago||COT_TEXTS.pago;
   $("qIVA").checked=!!c.aplicaIVA;$("qNotas").value=c.notas||COT_TEXTS.notas;
+  qFillDesc(c);
   updateTextsHint();
   qLines=(c.items||[]).map(it=>{
     let pw=it.potenciaW||0;
@@ -4223,6 +4254,7 @@ function qduplicar(id){
   $("qPago").value=c.pago||COT_TEXTS.pago;
   $("qIVA").checked=!!c.aplicaIVA;
   $("qNotas").value=c.notas||COT_TEXTS.notas;
+  qFillDesc(c);
   updateTextsHint();
   qLines=(c.items||[]).map(it=>{
     let pw=it.potenciaW||0;
@@ -4368,6 +4400,7 @@ function printCot(c){
   .nis{font-size:11.5px;color:var(--muted);text-align:right}
   .nis b{display:block;font-size:14px;color:var(--navy)}
   .greet{font-size:12px;color:var(--muted);line-height:1.55;margin:10px 0 4px;border-left:3px solid var(--gold);padding:2px 0 2px 11px}
+  .descproy{font-size:12.5px;color:var(--ink);line-height:1.6;margin:18px 0 4px;white-space:pre-line}
   .sec{display:flex;align-items:center;gap:10px;margin:20px 0 11px}
   .sec h3{margin:0;font-size:11.5px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--navy);white-space:nowrap}
   .sec::after{content:"";flex:1;height:1px;background:var(--line)}
@@ -4413,6 +4446,7 @@ function printCot(c){
     .head{padding-bottom:7px}
     .clientline{margin:6px 0 2px}
     .greet{margin:4px 0 2px;font-size:10.5px;line-height:1.4}
+    .descproy{font-size:11px;line-height:1.4;margin:8px 0 4px}
     .sec{margin:8px 0 4px}
     .specs{gap:5px;break-inside:avoid}
     .spec{padding:5px 8px}
@@ -4470,6 +4504,8 @@ function printCot(c){
   <div class="greet">${esc(saludo)}</div>
 
   ${specsHTML}
+
+  ${(c.descProyectoOn&&(c.descProyecto||"").trim())?`<div class="descproy">${esc(c.descProyecto).replace(/\n/g,"<br>")}</div>`:""}
 
   <div class="sec"><h3>Materiales, trabajos y detalle</h3></div>
   <table>
