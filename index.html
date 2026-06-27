@@ -5872,6 +5872,7 @@ function vDelMov(cotId,movId){
 
 /* ---- Comprobante (baucher) en el form de proyecto · misma lógica que Finanzas ---- */
 let vFormComp=null;   // comprobante adjunto en el formulario {dataUrl/r2Key,type,name,datos}
+let vCuotaComp=null;  // comprobante adjunto en el formulario "Registrar pago" (cuotas)
 function vRenderCompRow(){
   const box=$("vMovCompControls"); if(!box) return;
   if(!vFormComp){
@@ -5936,6 +5937,66 @@ function vMovCuadraBaucher(monto){
     if(!confirm(`El monto que escribiste (${moneyGTQ(monto)}) no cuadra con el del baucher (${moneyGTQ(iaMonto)}).\n\nDiferencia: ${moneyGTQ(monto-iaMonto)}\n\n¿Guardar de todos modos?`)){ if($("vMovMonto"))$("vMovMonto").focus(); return false; }
   }
   return true;
+}
+/* ---- Comprobante en "Registrar pago" (cuotas) · juego de funciones propio, no toca el del form normal ---- */
+function vCuotaRenderCompRow(){
+  const box=$("vCuotaCompControls"); if(!box) return;
+  if(!vCuotaComp){
+    box.innerHTML=`<button type="button" class="btn ghost sm" style="font-size:11px" onclick="vCuotaCompTrigger()">📎 Adjuntar baucher</button>`;
+    return;
+  }
+  const d=vCuotaComp.datos;
+  const valOk=x=> x!=null && String(x).trim()!=="" && String(x).toLowerCase()!=="null";
+  let datosTxt="";
+  if(d){
+    const fila=(lbl,vv,extra)=> valOk(vv)?`<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--muted)">${lbl}</span><b style="${extra||''}">${esc(String(vv))}</b></div>`:"";
+    datosTxt=`<div style="margin-top:7px;background:rgba(14,99,190,.06);border:1px solid rgba(14,99,190,.18);border-radius:9px;padding:8px 11px;font-size:11.5px;max-width:320px">
+      <div style="font-weight:800;color:var(--navy);margin-bottom:4px">🤖 Datos leídos del baucher</div>
+      ${fila("Monto",d.monto,"color:var(--green);font-size:13px")}
+      ${fila("Fecha",d.fecha)}
+      ${fila("Referencia",d.numero)}
+      ${fila("Banco",d.banco)}
+    </div>`;
+  }
+  box.innerHTML=`<span style="font-size:11px;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle">${esc(vCuotaComp.name||"comprobante")}</span>
+    <button type="button" class="btn ghost sm" style="font-size:11px" onclick="vCuotaVerComp()">👁 Ver</button>
+    <button type="button" class="btn ghost sm" style="font-size:11px" onclick="vCuotaReadComp(this)">🤖 Leer con IA</button>
+    <button type="button" class="btn ghost sm" style="font-size:11px;color:#c0392b" onclick="vCuotaQuitarComp()">✕ Quitar</button>
+    ${datosTxt}`;
+}
+function vCuotaCompTrigger(){ const i=$("vCuotaCompInput"); if(i){ i.value=""; i.click(); } }
+async function vCuotaAttachComp(input){
+  const f=input.files&&input.files[0]; if(!f) return;
+  try{
+    const prev=(vCuotaComp&&vCuotaComp.datos)||null;
+    if(r2On()){
+      try{ const key=await r2Upload(f, f.name, f.type, "bauchers"); vCuotaComp={r2Key:key,dataUrl:"",type:f.type||"",name:f.name||"comprobante",datos:prev}; }
+      catch(e){ vCuotaComp={dataUrl:await fileToDataURL(f),type:f.type||"",name:f.name||"comprobante",datos:prev}; }
+    }else{
+      vCuotaComp={dataUrl:await fileToDataURL(f),type:f.type||"",name:f.name||"comprobante",datos:prev};
+    }
+    vCuotaRenderCompRow();
+    toast("Comprobante adjuntado ✓");
+  }catch(e){ toast("No se pudo cargar el archivo",true); }
+}
+function vCuotaQuitarComp(){ vCuotaComp=null; vCuotaRenderCompRow(); }
+function vCuotaVerComp(){ if(vCuotaComp) finViewImage(fileSrc(vCuotaComp),vCuotaComp.type); }
+async function vCuotaReadComp(btn){
+  if(!vCuotaComp){toast("Adjunta un baucher primero",true);return;}
+  let key=(localStorage.getItem("des_anthropic_key")||"").trim();
+  if(!key){ const k=prompt("Pega tu API Key de Anthropic para leer bauchers con IA:"); if(k&&k.trim()){ key=k.trim(); try{localStorage.setItem("des_anthropic_key",key);}catch(e){} } else return; }
+  if(btn){btn.disabled=true;btn.textContent="⏳";}
+  try{
+    const datos=await finLeerBaucher(vCuotaComp, vCuotaComp.type, key);
+    vCuotaComp.datos=datos;
+    if(datos){
+      if(!$("vAddFormCuotaMonto").value && datos.monto){ const n=pagosParseNum(datos.monto); if(n) $("vAddFormCuotaMonto").value=n; }
+      if(datos.fecha){ const iso=finFechaISO(datos.fecha); if(iso && $("vAddFormCuotaFecha")) $("vAddFormCuotaFecha").value=iso; }
+    }
+    vCuotaRenderCompRow();
+    toast("Baucher leído con IA ✓");
+  }catch(err){ toast("Error al leer: "+err.message,true); }
+  finally{ if(btn){btn.disabled=false;btn.textContent="🤖 Leer con IA";} }
 }
 async function vReadComp(btn){
   if(!vFormComp){toast("Adjunta un baucher primero",true);return;}
@@ -6089,6 +6150,10 @@ function vMovRender(cotId){
             <button type="button" class="btn ghost sm" style="font-size:11px;padding:4px 9px" onclick="vAddFormCancelCuenta()">← Nuevo</button>
           </div>
         </div>
+        <div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <input type="file" id="vCuotaCompInput" accept="image/*,.pdf" style="display:none" onchange="vCuotaAttachComp(this)">
+          <span id="vCuotaCompControls"></span>
+        </div>
       </div>
       <div id="vAddFormNewMode" style="max-width:600px">
         <div class="vmov-grid3" style="display:grid;grid-template-columns:110px 1fr 140px;gap:7px;align-items:end;margin-bottom:9px">
@@ -6171,6 +6236,7 @@ function vAddFormSelectCuenta(cotId,cuentaId){
   const cf=$("vAddFormCuotaFecha");if(cf)cf.value=todayISO();
   const cm=$("vAddFormCuotaMonto");if(cm){cm.value="";setTimeout(()=>cm.focus(),50);}
   const t=$("vAddFormTitle");if(t)t.textContent="Registrar pago";
+  vCuotaComp=null; vCuotaRenderCompRow();
   $("vAddFormCuotaMode").style.display="";
   $("vAddFormNewMode").style.display="none";
 }
@@ -6187,7 +6253,8 @@ function vAddFormCuotaSave(cotId){
   const v=vget(cotId);
   const c=v.cuentas.find(x=>x.id===cuentaId);if(!c)return;
   const cuotaNum=v.movimientos.filter(m=>m.cuentaId===cuentaId).length+1;
-  v.movimientos.push({id:uid(),fecha,descripcion:c.descripcion+" · cuota "+cuotaNum,entrada:c.tipo==="entrada"?monto:0,salida:c.tipo==="salida"?monto:0,cuentaId,provId:null});
+  v.movimientos.push({id:uid(),fecha,descripcion:c.descripcion+" · cuota "+cuotaNum,entrada:c.tipo==="entrada"?monto:0,salida:c.tipo==="salida"?monto:0,cuentaId,provId:null,comprobante:vCuotaComp||null});
+  vCuotaComp=null;
   vsave();toast("Cuota "+cuotaNum+" registrada ✓");vopen(cotId);
 }
 function vMovDelCuenta(cotId,cuentaId){
