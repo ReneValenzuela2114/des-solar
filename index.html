@@ -7567,19 +7567,31 @@ function repMantTableHTML(){
     const ant=antiguedadTxt(c.fechaEntrega);
     const hist=mantArr(c);
     const chips=hist.length?hist.map(m=>`<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(21,127,76,.1);color:#157f4c;font-size:10.5px;font-weight:700;padding:2px 6px;border-radius:20px;margin:0 3px 3px 0">${fmtDate(m.fecha)}<span onclick="mantDel('${c.id}','${m.fecha}')" title="Quitar" style="cursor:pointer;color:#c0392b;font-weight:800">✕</span></span>`).join(''):`<span style="font-size:10.5px;color:var(--muted);font-style:italic">Ninguno aún</span>`;
-    const addCtl=`<div style="margin-top:4px;display:flex;align-items:center;gap:4px"><input type="date" id="mantNew_${c.id}" value="${todayISO()}" style="font-size:10.5px;padding:2px 5px;border:1.5px solid var(--line);border-radius:6px"><button type="button" onclick="mantAdd('${c.id}')" title="Registrar mantenimiento en esa fecha" style="font-size:10.5px;font-weight:800;border:none;background:var(--navy);color:#fff;border-radius:6px;padding:3px 8px;cursor:pointer">➕ Marcar</button></div>`;
+    const doneDefault=c.proxMant||todayISO();
+    const liberar=`<div style="margin-top:7px;padding-top:7px;border-top:1px dashed var(--line)">
+        <div style="font-size:9px;font-weight:800;color:var(--muted);letter-spacing:.3px;margin-bottom:3px">${c.proxMant?'¿YA SE HIZO? — LIBERAR':'REGISTRAR UNO HECHO'}</div>
+        <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+          <input type="date" id="mantDone_${c.id}" value="${doneDefault}" title="Fecha real en que se hizo el mantenimiento" style="font-size:10.5px;padding:2px 5px;border:1.5px solid var(--line);border-radius:6px">
+          <button type="button" onclick="mantLiberar('${c.id}')" title="Marca el mantenimiento como hecho en esa fecha y libera el programado" style="font-size:10.5px;font-weight:800;border:none;background:var(--green);color:#fff;border-radius:6px;padding:3px 9px;cursor:pointer">✅ ${c.proxMant?'Liberar':'Marcar hecho'}</button>
+        </div>
+      </div>`;
     let proxCell;
     if(c.proxMant){
       const r=mantRestante(c.proxMant);
-      proxCell=`<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap"><input type="date" value="${c.proxMant}" onchange="mantSetProx('${c.id}',this.value)" style="font-size:10.5px;padding:2px 5px;border:1.5px solid var(--line);border-radius:6px"><button type="button" onclick="mantClearProx('${c.id}')" title="Quitar próximo" style="font-size:12px;color:#c0392b;background:none;border:none;cursor:pointer">✕</button></div><div style="font-size:10.5px;font-weight:800;color:${r.color};margin-top:3px">${esc(r.txt)}</div>`;
+      proxCell=`<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
+          <span style="font-size:8.5px;font-weight:800;color:var(--muted);letter-spacing:.3px">PROGRAMADO</span>
+          <input type="date" value="${c.proxMant}" onchange="mantSetProx('${c.id}',this.value)" style="font-size:10.5px;padding:2px 5px;border:1.5px solid var(--line);border-radius:6px">
+          <button type="button" onclick="mantClearProx('${c.id}')" title="Quitar la programación" style="font-size:12px;color:#c0392b;background:none;border:none;cursor:pointer">✕</button>
+        </div>
+        <div style="font-size:10.5px;font-weight:800;color:${r.color};margin-top:3px">${esc(r.txt)}</div>${liberar}`;
     } else {
-      proxCell=`<button type="button" onclick="mantSetProxDefault('${c.id}')" title="Programar el próximo mantenimiento (por defecto a 1 año)" style="font-size:10.5px;font-weight:800;border:1.5px solid var(--line);background:#fff;color:var(--navy);border-radius:7px;padding:4px 9px;cursor:pointer">📅 Programar</button><div style="font-size:10px;color:var(--muted);margin-top:3px">Sin programar</div>`;
+      proxCell=`<button type="button" onclick="mantSetProxDefault('${c.id}')" title="Programar el próximo mantenimiento (por defecto a 1 año)" style="font-size:10.5px;font-weight:800;border:1.5px solid var(--line);background:#fff;color:var(--navy);border-radius:7px;padding:4px 9px;cursor:pointer">📅 Programar próximo</button><div style="font-size:10px;color:var(--muted);margin-top:3px">Sin programar</div>${liberar}`;
     }
     return `<tr>
       <td style="${td}">${proy}<div style="font-size:10px;color:var(--muted)">${esc(c.numero||'')} · ${c.estado==='Archivada'?'Archivado':'Finalizado'}</div></td>
       <td style="${td};white-space:nowrap;color:var(--muted)">${fmtDate(c.fechaEntrega)||'—'}</td>
       <td style="${td};white-space:nowrap;font-weight:700;color:var(--navy)">${esc(ant)}</td>
-      <td style="${td}">${chips}${addCtl}</td>
+      <td style="${td}">${chips}</td>
       <td style="${td}">${proxCell}</td>
     </tr>`;
   }).join(''):`<tr><td colspan="5" style="text-align:center;color:var(--muted);font-style:italic;padding:18px">Sin proyectos entregados (con fecha de entrega) que coincidan con el filtro.</td></tr>`;
@@ -7588,15 +7600,17 @@ function repMantTableHTML(){
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">${head}${rowsHTML}</table></div>
     <div style="font-size:10.5px;color:var(--muted);margin-top:9px;font-style:italic">Marca la fecha de cada mantenimiento realizado. Programa el próximo solo si se le va a hacer (sale por defecto a 1 año del último mantenimiento, o de la entrega si aún no hay ninguno) y puedes cambiarlo o quitarlo.</div>`;
 }
-function mantAdd(cotId){
+function mantLiberar(cotId){
   const c=cotizaciones.find(x=>x.id===cotId); if(!c)return;
-  const inp=document.getElementById('mantNew_'+cotId);
+  const inp=document.getElementById('mantDone_'+cotId);
   const f=String((inp&&inp.value)||todayISO()).slice(0,10);
   if(!c.mantenimientos) c.mantenimientos=[];
   if(c.mantenimientos.some(m=>m.fecha===f)){ toast('Ya hay un mantenimiento en esa fecha',true); return; }
   c.mantenimientos.push({fecha:f});
+  const tieneProx=!!c.proxMant;
+  c.proxMant=null; // al marcarlo hecho, se libera el programado
   c.updated=Date.now(); qsave(); repRenderResult();
-  toast('Mantenimiento registrado ✓');
+  toast(tieneProx?'Mantenimiento hecho y próximo liberado ✓':'Mantenimiento registrado ✓');
 }
 function mantDel(cotId,fechaISO){
   const c=cotizaciones.find(x=>x.id===cotId); if(!c||!Array.isArray(c.mantenimientos))return;
