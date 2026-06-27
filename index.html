@@ -7251,6 +7251,7 @@ const REP_TYPES=[
 let repType='vencer';
 let repF={desde:'',hasta:'',mes:'',vendedor:'',cliente:'',estVencer:'pendientes',estVend:'vendidas',garEstado:'todas',garMeses:'',mantEstado:'ambos',mantSearch:''};
 let repInited=false;
+let repMantOrder=null; // orden estable de filas de Mantenimientos; null = recalcular al próximo render
 const REP_INP="font-size:12px;padding:5px 8px;border:1.5px solid var(--line);border-radius:7px;outline:none";
 
 /* ---- Periodo rápido (selector de mes con flechas) ---- */
@@ -7528,21 +7529,31 @@ function repMantHaystack(c){
     cli.nombre,cli.apellido,cli.empresa,cli.alias,cli.nit,cli.telefono,cli.correo,cli.municipio,cli.departamento
   ].map(v=>(v||'').toString().toLowerCase()).join(' ');
 }
-function repMantList(){
-  const est=repF.mantEstado||'ambos';
-  const q=(repF.mantSearch||'').toLowerCase().trim();
-  return (cotizaciones||[]).filter(c=>{
-    if(!c.fechaEntrega) return false;
-    if(est==='ambos'){ if(!(c.estado==='Finalizado'||c.estado==='Archivada')) return false; }
-    else { if(c.estado!==est) return false; }
-    if(q && !repMantHaystack(c).includes(q)) return false;
-    return true;
-  }).sort((a,b)=>{
+function repMantSortNow(){
+  const all=(cotizaciones||[]).filter(c=>c.fechaEntrega&&(c.estado==='Finalizado'||c.estado==='Archivada'));
+  all.sort((a,b)=>{
     const da=a.proxMant?daysUntilISO(a.proxMant):Infinity;
     const db=b.proxMant?daysUntilISO(b.proxMant):Infinity;
     if(da!==db) return da-db;
     return (a.fechaEntrega||'').localeCompare(b.fechaEntrega||'');
   });
+  repMantOrder=all.map(c=>c.id);
+}
+function repMantReorder(){ repMantSortNow(); repRenderResult(); }
+function repMantList(){
+  const est=repF.mantEstado||'ambos';
+  const q=(repF.mantSearch||'').toLowerCase().trim();
+  const filtered=(cotizaciones||[]).filter(c=>{
+    if(!c.fechaEntrega) return false;
+    if(est==='ambos'){ if(!(c.estado==='Finalizado'||c.estado==='Archivada')) return false; }
+    else { if(c.estado!==est) return false; }
+    if(q && !repMantHaystack(c).includes(q)) return false;
+    return true;
+  });
+  // Orden estable: respeta el último orden calculado; las filas no saltan mientras editas.
+  const order=repMantOrder||[];
+  const idx=id=>{const i=order.indexOf(id);return i<0?1e9:i;};
+  return filtered.sort((a,b)=> (idx(a.id)-idx(b.id)) || (a.fechaEntrega||'').localeCompare(b.fechaEntrega||''));
 }
 function repMantCards(list){
   const conProx=list.filter(c=>c.proxMant).length;
@@ -7664,6 +7675,7 @@ function repMantData(){
 /* ---- UI Reportes ---- */
 function repRender(){
   if(!repInited){ repInited=true; const ym=todayISO().slice(0,7); repF.mes=ym; const b=repMonthBounds(ym); repF.desde=b.desde; repF.hasta=b.hasta; }
+  repMantOrder=null; // al entrar a la pestaña / cambiar de reporte se reordena; durante edición no (esas llaman a repRenderResult)
   repRenderTypeBar(); repRenderFilters(); repRenderResult();
 }
 function repRenderTypeBar(){
@@ -7702,7 +7714,8 @@ function repRenderFilters(){
       +repFld('Hasta',`<input id="repHasta" type="date" value="${repF.hasta||''}" onchange="repApply()" style="${REP_INP}">`);
   } else if(repType==='mant'){
     f=repFld('Estado',`<select id="repMantEstado" onchange="repApply()" style="${REP_INP}">${repOptHTML('ambos','Finalizados y Archivados',repF.mantEstado)}${repOptHTML('Finalizado','Finalizados',repF.mantEstado)}${repOptHTML('Archivada','Archivados',repF.mantEstado)}</select>`)
-      +repFld('Buscar proyecto',`<input id="repMantSearch" type="text" placeholder="Cliente, alias, No., NIS, NIT..." value="${esc(repF.mantSearch||'')}" oninput="repApply()" style="${REP_INP};min-width:230px">`);
+      +repFld('Buscar proyecto',`<input id="repMantSearch" type="text" placeholder="Cliente, alias, No., NIS, NIT..." value="${esc(repF.mantSearch||'')}" oninput="repApply()" style="${REP_INP};min-width:230px">`)
+      +repFld('Orden',`<button type="button" onclick="repMantReorder()" title="Reordenar por mantenimiento más próximo o vencido" style="font-size:11px;font-weight:800;padding:6px 12px;border-radius:8px;border:1.5px solid var(--navy);background:var(--navy);color:#fff;cursor:pointer">↕ Reordenar</button>`);
   } else {
     f=repFld('Vendedor',repVendSelect())
       +repFld('Cliente',`<input id="repCliente" type="text" placeholder="Buscar cliente..." value="${esc(repF.cliente||'')}" oninput="repApply()" style="${REP_INP};min-width:190px">`);
@@ -7749,7 +7762,7 @@ function repTableHTML(d){
 }
 function repRenderResult(){
   const box=$("repResult"); if(!box)return;
-  if(repType==='mant'){ box.innerHTML=repMantTableHTML(); return; }
+  if(repType==='mant'){ if(repMantOrder===null) repMantSortNow(); box.innerHTML=repMantTableHTML(); return; }
   box.innerHTML=repTableHTML(repData());
 }
 
