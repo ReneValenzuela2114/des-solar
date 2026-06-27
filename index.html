@@ -1657,7 +1657,6 @@ window.DESAuth = DESAuth;
           </div>
         </div>
         <div style="margin-top:11px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <span style="font-size:11px;font-weight:700;color:var(--navy)">📎 Comprobante:</span>
           <input type="file" id="finCompInput" accept="image/*,.pdf" style="display:none" onchange="finAttachComp(this)">
           <span id="finCompControls"></span>
         </div>
@@ -5689,6 +5688,7 @@ function vShowAddMov(cotId){
   $("vMovTipo").value="salida";
   const cb=$("vMovEsCuotas");if(cb)cb.checked=false;
   const ci=$("vMovComprobanteInfo");if(ci)ci.style.display="none";
+  vFormComp=null; vRenderCompRow();
   if($("vMovEstado"))$("vMovEstado").value="pendiente";
   const simpleRow=$("vMovSimpleRow");if(simpleRow)simpleRow.style.display="flex";
   const cuotasRow=$("vMovCuotasRow");if(cuotasRow)cuotasRow.style.display="none";
@@ -5712,6 +5712,7 @@ function vEditMov(cotId,movId){
   const cuotasRow=$("vMovCuotasRow");if(cuotasRow)cuotasRow.style.display="none";
   if($("vMovMonto"))$("vMovMonto").value=m.entrada>0?m.entrada:m.salida;
   if($("vMovEstado"))$("vMovEstado").value=m.estado||"pendiente";
+  vFormComp=m.comprobante?Object.assign({},m.comprobante):null; vRenderCompRow();
   // Mostrar comprobante vinculado si existe
   const compInfo=$("vMovComprobanteInfo");
   if(compInfo){
@@ -5739,12 +5740,14 @@ function vAddMov(cotId){
   if(vEditMovId){
     const monto=parseFloat($("vMovMonto").value)||0;
     if(!monto){toast("Escribe un monto mayor a 0",true);if($("vMovMonto"))$("vMovMonto").focus();return;}
+    if(!vMovCuadraBaucher(monto))return;
     const m=v.movimientos.find(x=>x.id===vEditMovId);
     const newEstado=$("vMovEstado")?$("vMovEstado").value:"pendiente";
     const ci=$("vMovComprobanteInfo");
     if(m){
       m.fecha=fecha;m.descripcion=desc;m.entrada=tipo==="entrada"?monto:0;m.salida=tipo==="salida"?monto:0;
       m.estado=newEstado;
+      m.comprobante=vFormComp||null;
       if(ci&&ci.dataset.unlinked==="1"){m.comprobanteId=null;delete ci.dataset.unlinked;}
     }
     vEditMovId=null;
@@ -5762,8 +5765,9 @@ function vAddMov(cotId){
   } else {
     const monto=parseFloat($("vMovMonto").value)||0;
     if(!monto){toast("Escribe un monto mayor a 0",true);if($("vMovMonto"))$("vMovMonto").focus();return;}
+    if(!vMovCuadraBaucher(monto))return;
     const estadoNuevo=$("vMovEstado")?$("vMovEstado").value:"completado";
-    v.movimientos.push({id:uid(),fecha,descripcion:desc,entrada:tipo==="entrada"?monto:0,salida:tipo==="salida"?monto:0,cuentaId:null,provId:null,estado:estadoNuevo});
+    v.movimientos.push({id:uid(),fecha,descripcion:desc,entrada:tipo==="entrada"?monto:0,salida:tipo==="salida"?monto:0,cuentaId:null,provId:null,estado:estadoNuevo,comprobante:vFormComp||null});
     vsave();toast(tipo==="entrada"?"Cobro registrado ✓":"Gasto registrado ✓");
   }
   vopen(cotId);
@@ -5773,6 +5777,92 @@ function vDelMov(cotId,movId){
   if(!v)return;
   v.movimientos=v.movimientos.filter(m=>m.id!==movId);
   vsave();vopen(cotId);toast("Movimiento eliminado");
+}
+
+/* ---- Comprobante (baucher) en el form de proyecto · misma lógica que Finanzas ---- */
+let vFormComp=null;   // comprobante adjunto en el formulario {dataUrl/r2Key,type,name,datos}
+function vRenderCompRow(){
+  const box=$("vMovCompControls"); if(!box) return;
+  if(!vFormComp){
+    box.innerHTML=`<button type="button" class="btn ghost sm" style="font-size:11px" onclick="vCompTrigger()">📎 Adjuntar baucher</button>`;
+    return;
+  }
+  const d=vFormComp.datos;
+  const valOk=x=> x!=null && String(x).trim()!=="" && String(x).toLowerCase()!=="null";
+  let datosTxt="";
+  if(d){
+    const fila=(lbl,vv,extra)=> valOk(vv)?`<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--muted)">${lbl}</span><b style="${extra||''}">${esc(String(vv))}</b></div>`:"";
+    datosTxt=`<div style="margin-top:7px;background:rgba(14,99,190,.06);border:1px solid rgba(14,99,190,.18);border-radius:9px;padding:8px 11px;font-size:11.5px;max-width:320px">
+      <div style="font-weight:800;color:var(--navy);margin-bottom:4px">🤖 Datos leídos del baucher</div>
+      ${fila("Monto",d.monto,"color:var(--green);font-size:13px")}
+      ${fila("Fecha",d.fecha)}
+      ${fila("Referencia",d.numero)}
+      ${fila("Banco",d.banco)}
+      ${valOk(d.notas)?`<div style="color:var(--muted);margin-top:3px;font-style:italic">${esc(String(d.notas))}</div>`:""}
+    </div>`;
+  }
+  let cuadreTxt="";
+  if(d && d.monto!=null && String(d.monto).toLowerCase()!=="null"){
+    const iaMonto=pagosParseNum(d.monto);
+    if(iaMonto>0){
+      const actual=parseFloat($("vMovMonto").value)||0;
+      const diff=Math.round((actual-iaMonto)*100)/100;
+      cuadreTxt = Math.abs(diff)<0.005
+        ? `<div style="font-size:10.5px;font-weight:800;color:var(--green);margin-top:4px">✓ El monto cuadra con el baucher (${moneyGTQ(iaMonto)})</div>`
+        : `<div style="font-size:10.5px;font-weight:800;color:#b35a00;margin-top:4px">⚠ El baucher dice ${moneyGTQ(iaMonto)} · diferencia ${moneyGTQ(diff)}</div>`;
+    }
+  }
+  box.innerHTML=`<span style="font-size:11px;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle">${esc(vFormComp.name||"comprobante")}</span>
+    <button type="button" class="btn ghost sm" style="font-size:11px" onclick="vVerCompForm()">👁 Ver</button>
+    <button type="button" class="btn ghost sm" style="font-size:11px" onclick="vReadComp(this)">🤖 Leer con IA</button>
+    <button type="button" class="btn ghost sm" style="font-size:11px;color:#c0392b" onclick="vQuitarComp()">✕ Quitar</button>
+    ${datosTxt}${cuadreTxt}`;
+}
+function vCompTrigger(){ const i=$("vMovCompInput"); if(i){ i.value=""; i.click(); } }
+async function vAttachComp(input){
+  const f=input.files&&input.files[0]; if(!f) return;
+  try{
+    const prev=(vFormComp&&vFormComp.datos)||null;
+    if(r2On()){
+      try{ const key=await r2Upload(f, f.name, f.type, "bauchers"); vFormComp={r2Key:key,dataUrl:"",type:f.type||"",name:f.name||"comprobante",datos:prev}; }
+      catch(e){ vFormComp={dataUrl:await fileToDataURL(f),type:f.type||"",name:f.name||"comprobante",datos:prev}; }
+    }else{
+      vFormComp={dataUrl:await fileToDataURL(f),type:f.type||"",name:f.name||"comprobante",datos:prev};
+    }
+    // Al adjuntar el recibo desde aquí, el movimiento queda como Completado
+    if($("vMovEstado"))$("vMovEstado").value="completado";
+    vRenderCompRow();
+    toast("Comprobante adjuntado ✓");
+  }catch(e){ toast("No se pudo cargar el archivo",true); }
+}
+function vQuitarComp(){ vFormComp=null; vRenderCompRow(); }
+function vVerCompForm(){ if(vFormComp) finViewImage(fileSrc(vFormComp),vFormComp.type); }
+function vViewMovComp(cotId,movId){ const v=vget(cotId); const m=v&&v.movimientos.find(x=>x.id===movId); if(m&&m.comprobante) finViewImage(fileSrc(m.comprobante),m.comprobante.type); }
+function vMovCuadraBaucher(monto){
+  if(!(vFormComp && vFormComp.datos && vFormComp.datos.monto!=null && String(vFormComp.datos.monto).toLowerCase()!=="null")) return true;
+  const iaMonto=pagosParseNum(vFormComp.datos.monto);
+  if(iaMonto>0 && Math.abs(iaMonto-monto)>=0.005){
+    if(!confirm(`El monto que escribiste (${moneyGTQ(monto)}) no cuadra con el del baucher (${moneyGTQ(iaMonto)}).\n\nDiferencia: ${moneyGTQ(monto-iaMonto)}\n\n¿Guardar de todos modos?`)){ if($("vMovMonto"))$("vMovMonto").focus(); return false; }
+  }
+  return true;
+}
+async function vReadComp(btn){
+  if(!vFormComp){toast("Adjunta un baucher primero",true);return;}
+  let key=(localStorage.getItem("des_anthropic_key")||"").trim();
+  if(!key){ const k=prompt("Pega tu API Key de Anthropic para leer bauchers con IA:"); if(k&&k.trim()){ key=k.trim(); try{localStorage.setItem("des_anthropic_key",key);}catch(e){} } else return; }
+  if(btn){btn.disabled=true;btn.textContent="⏳";}
+  try{
+    const datos=await finLeerBaucher(vFormComp, vFormComp.type, key);
+    vFormComp.datos=datos;
+    if(datos){
+      if(!$("vMovMonto").value && datos.monto){ const n=pagosParseNum(datos.monto); if(n) $("vMovMonto").value=n; }
+      if(datos.fecha){ const iso=finFechaISO(datos.fecha); if(iso) $("vMovFecha").value=iso; }
+      if(!$("vMovDesc").value){ const d2=[datos.banco,datos.numero?("Ref "+datos.numero):""].filter(Boolean).join(" · "); if(d2) $("vMovDesc").value=d2; }
+    }
+    vRenderCompRow();
+    toast("Baucher leído con IA ✓");
+  }catch(err){ toast("Error al leer: "+err.message,true); }
+  finally{ if(btn){btn.disabled=false;btn.textContent="🤖 Leer con IA";} }
 }
 
 
@@ -5879,6 +5969,7 @@ function vMovRender(cotId){
       <td style="padding:5px 6px;text-align:center;white-space:nowrap">
         <span style="font-size:10px;font-weight:800;padding:2px 7px;border-radius:20px;${m.estado==='completado'?'background:rgba(21,127,76,.13);color:var(--green)':'background:rgba(230,180,0,.18);color:#b8860b'}">${m.estado==='completado'?'✓ Listo':'⏳ Pdte'}</span>
         ${m.comprobanteId?`<button type="button" class="lx" title="Ver comprobante" onclick="verComprobante('${m.comprobanteId}')" style="font-size:14px">🖼</button>`:''}
+        ${m.comprobante?`<button type="button" class="lx" title="Ver comprobante" onclick="vViewMovComp('${cotId}','${m.id}')" style="font-size:14px">🖼</button>`:''}
         <button type="button" class="lx admin-only" title="Editar" onclick="vEditMov('${cotId}','${m.id}')">✎</button>
         <button type="button" class="lx admin-only" title="Eliminar" onclick="vDelMov('${cotId}','${m.id}')">✕</button>
       </td>
@@ -5932,7 +6023,7 @@ function vMovRender(cotId){
           </div>
         </div>
         <div id="vMovSimpleRow" style="display:flex;gap:7px;align-items:flex-end">
-          <div class="field" style="margin:0"><label style="font-size:10px;font-weight:700">Monto (Q)</label><input id="vMovMonto" type="number" min="0" step="any" class="no-spin" placeholder="0.00" style="font-size:12px;padding:4px 7px;width:150px"></div>
+          <div class="field" style="margin:0"><label style="font-size:10px;font-weight:700">Monto (Q)</label><input id="vMovMonto" type="number" min="0" step="any" class="no-spin" placeholder="0.00" oninput="vRenderCompRow()" style="font-size:12px;padding:4px 7px;width:150px"></div>
         </div>
         <div id="vMovCuotasRow" style="display:none;gap:7px;align-items:flex-end">
           <div class="field" style="margin:0"><label style="font-size:10px;font-weight:700">Total acordado (Q)</label><input id="vMovTotal" type="number" min="0" step="any" placeholder="0.00" style="font-size:12px;padding:4px 7px;width:150px"></div>
@@ -5945,6 +6036,10 @@ function vMovRender(cotId){
             <button type="button" id="vMovCompBtn" onclick="reasignarComprobante(this.dataset.compId)" style="background:linear-gradient(135deg,var(--navy),var(--blue));border:none;cursor:pointer;color:#fff;font-size:11px;font-weight:800;padding:5px 11px;border-radius:7px;box-shadow:0 2px 6px rgba(12,54,95,.25)">✏️ Editar / reasignar comprobante</button>
           </div>
           <div style="font-size:10px;color:var(--muted);margin-top:5px">Te lleva a la Bandeja de Pagos: ahí podrás ver la foto, reasignarla, borrarla o jalar otra.</div>
+        </div>
+        <div style="margin-top:11px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <input type="file" id="vMovCompInput" accept="image/*,.pdf" style="display:none" onchange="vAttachComp(this)">
+          <span id="vMovCompControls"></span>
         </div>
         <div style="display:flex;gap:7px;margin-top:10px">
           <button type="button" id="vSubmitBtn" class="btn primary sm" style="font-size:11px;padding:4px 10px" onclick="vAddMov('${cotId}')">Agregar</button>
