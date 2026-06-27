@@ -7252,6 +7252,7 @@ let repType='vencer';
 let repF={desde:'',hasta:'',mes:'',anio:'',vendedor:'',cliente:'',estVencer:'pendientes',estVendArr:['Aprobada','Finalizado'],vendSearch:'',garEstado:'todas',garMeses:'',mantEstado:'ambos',mantSearch:''};
 let repInited=false;
 let repMantOrder=null; // orden estable de filas de Mantenimientos; null = recalcular al próximo render
+let repVendEstOpen=false; // menú desplegable de estados en Ventas abierto/cerrado
 const REP_INP="font-size:12px;padding:5px 8px;border:1.5px solid var(--line);border-radius:7px;outline:none";
 
 /* ---- Periodo rápido (selector de mes con flechas) ---- */
@@ -7703,6 +7704,31 @@ function repVendSelect(){
   const vs=repVendedores();
   return `<select id="repVendedor" onchange="repApply()" style="${REP_INP}"><option value="">Todos</option>${vs.map(v=>`<option ${repF.vendedor===v?'selected':''}>${esc(v)}</option>`).join("")}</select>`;
 }
+const REP_VEND_ESTS=[['Aprobada','Aprobadas'],['Finalizado','Finalizadas'],['Archivada','Archivadas']];
+function repVendEstadoDropdownHTML(){
+  const arr=repF.estVendArr||[];
+  let summary;
+  if(arr.length===REP_VEND_ESTS.length) summary='Todos';
+  else if(arr.length===0) summary='Ninguno';
+  else summary=REP_VEND_ESTS.filter(e=>arr.includes(e[0])).map(e=>e[1]).join(', ');
+  const rows=REP_VEND_ESTS.map(([s,lbl])=>`<label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--navy);cursor:pointer;padding:5px 6px;border-radius:6px"><input type="checkbox" id="repEst${s}" ${arr.includes(s)?'checked':''} onchange="repVendEstChange()" style="width:14px;height:14px;accent-color:var(--brand);cursor:pointer">${lbl}</label>`).join('');
+  return `<div style="position:relative">
+    <button type="button" onclick="repVendEstToggleOpen()" style="${REP_INP};min-width:180px;cursor:pointer;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(summary)}</span><span style="color:var(--muted);font-size:10px">▼</span></button>
+    <div id="repVendEstPanel" style="display:${repVendEstOpen?'block':'none'};position:absolute;z-index:40;top:calc(100% + 4px);left:0;background:#fff;border:1.5px solid var(--line);border-radius:10px;box-shadow:0 10px 28px rgba(12,54,95,.18);padding:7px;min-width:185px">
+      ${rows}
+      <div style="display:flex;gap:6px;margin-top:6px;border-top:1px solid var(--line);padding-top:7px">
+        <button type="button" onclick="repVendEstAll(true)" style="flex:1;font-size:11px;font-weight:700;padding:6px;border:1.5px solid var(--line);border-radius:7px;background:#fff;color:var(--navy);cursor:pointer">Todos</button>
+        <button type="button" onclick="repVendEstAll(false)" style="flex:1;font-size:11px;font-weight:700;padding:6px;border:1.5px solid var(--line);border-radius:7px;background:#fff;color:var(--navy);cursor:pointer">Ninguno</button>
+      </div>
+    </div>
+  </div>`;
+}
+function repVendEstToggleOpen(){ repVendEstOpen=!repVendEstOpen; repRenderFilters(); }
+function repVendEstChange(){
+  const arr=[]; REP_VEND_ESTS.forEach(([s])=>{ const el=$('repEst'+s); if(el&&el.checked) arr.push(s); });
+  repF.estVendArr=arr; repRenderFilters(); repRenderResult();
+}
+function repVendEstAll(on){ repF.estVendArr = on?REP_VEND_ESTS.map(e=>e[0]):[]; repRenderFilters(); repRenderResult(); }
 function repOptHTML(val,label,cur){ return `<option value="${val}" ${cur===val?'selected':''}>${label}</option>`; }
 function repRenderFilters(){
   const box=$("repFilters"); if(!box)return;
@@ -7719,8 +7745,7 @@ function repRenderFilters(){
       +repFld('Entrega desde',`<input id="repDesde" type="date" value="${repF.desde||''}" onchange="repApply()" style="${REP_INP}">`)
       +repFld('Hasta',`<input id="repHasta" type="date" value="${repF.hasta||''}" onchange="repApply()" style="${REP_INP}">`);
   } else if(repType==='vendedor'){
-    const estChk=(s,lbl)=>`<label style="display:flex;align-items:center;gap:4px;font-size:11.5px;font-weight:700;color:var(--navy);cursor:pointer;user-select:none"><input type="checkbox" id="repEst${s}" ${(repF.estVendArr||[]).includes(s)?'checked':''} onchange="repApply()" style="width:13px;height:13px;accent-color:var(--brand);cursor:pointer">${lbl}</label>`;
-    f=repFld('Estado',`<div style="display:flex;gap:11px;align-items:center;flex-wrap:wrap;padding:5px 0">${estChk('Aprobada','Aprobadas')}${estChk('Finalizado','Finalizadas')}${estChk('Archivada','Archivadas')}</div>`)
+    f=repFld('Estado',repVendEstadoDropdownHTML())
       +repFld('Vendedor',repVendSelect())
       +repFld('Buscar (cliente, proyecto, NIT…)',`<input id="repVendSearch" type="text" placeholder="Cualquier dato del proyecto" value="${esc(repF.vendSearch||'')}" oninput="repApply()" style="${REP_INP};min-width:240px">`)
       +repFld('Creada desde',`<input id="repDesde" type="date" value="${repF.desde||''}" onchange="repApply()" style="${REP_INP}">`)
