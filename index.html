@@ -3650,7 +3650,7 @@ function archiveSubmit(e){
     cot.id=aEditId;cot.created=existing?existing.created:Date.now();
     // Conservar campos del proyecto que este formulario no edita (no perderlos al guardar)
     if(existing){
-      ["precioAcordado","fechaEntrega","garantiaMeses","fondosLiberados","fondosLiberadosDetalle","estadoPrevio"].forEach(k=>{
+      ["precioAcordado","fechaEntrega","garantiaMeses","mantenimientos","proxMant","fondosLiberados","fondosLiberadosDetalle","estadoPrevio"].forEach(k=>{
         if(existing[k]!==undefined) cot[k]=existing[k];
       });
     }
@@ -7245,10 +7245,11 @@ const REP_TYPES=[
   {id:'garantia',icon:'🛡', label:'Garantías de proyectos'},
   {id:'vendedor',icon:'🏅', label:'Ventas por vendedor'},
   {id:'cobrar',  icon:'📥', label:'Cuentas por cobrar'},
-  {id:'pagar',   icon:'📤', label:'Cuentas por pagar'}
+  {id:'pagar',   icon:'📤', label:'Cuentas por pagar'},
+  {id:'mant',    icon:'🔧', label:'Mantenimientos'}
 ];
 let repType='vencer';
-let repF={desde:'',hasta:'',mes:'',vendedor:'',cliente:'',estVencer:'pendientes',estVend:'vendidas',garEstado:'todas',garMeses:''};
+let repF={desde:'',hasta:'',mes:'',vendedor:'',cliente:'',estVencer:'pendientes',estVend:'vendidas',garEstado:'todas',garMeses:'',mantEstado:'ambos',mantSearch:''};
 let repInited=false;
 const REP_INP="font-size:12px;padding:5px 8px;border:1.5px solid var(--line);border-radius:7px;outline:none";
 
@@ -7495,6 +7496,157 @@ function repDataPagar(){
   };
 }
 
+/* ---- Reporte de Mantenimientos ---- */
+function mantArr(c){ return (Array.isArray(c.mantenimientos)?c.mantenimientos:[]).slice().sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'')); }
+function mantUltimaISO(c){ const a=mantArr(c); return a.length?a[a.length-1].fecha:''; }
+function antiguedadTxt(fromISO,toISO){
+  if(!fromISO) return '—';
+  const a=new Date(fromISO+'T12:00:00'), b=new Date((toISO||todayISO())+'T12:00:00');
+  if(isNaN(a)||isNaN(b)||b<a) return '—';
+  let y=b.getFullYear()-a.getFullYear(), m=b.getMonth()-a.getMonth(), d=b.getDate()-a.getDate();
+  if(d<0){ m--; d+=new Date(b.getFullYear(),b.getMonth(),0).getDate(); }
+  if(m<0){ y--; m+=12; }
+  const p=[];
+  if(y>0) p.push(y+(y===1?' año':' años'));
+  if(m>0) p.push(m+(m===1?' mes':' meses'));
+  if(!p.length) p.push((d||0)+(d===1?' día':' días'));
+  return p.join(' ');
+}
+function mantRestante(proxISO){
+  if(!proxISO) return {txt:'',color:'#7a8699',dias:null};
+  const dd=daysUntilISO(proxISO);
+  if(dd==null) return {txt:'',color:'#7a8699',dias:null};
+  if(dd<0)  return {txt:`Vencido hace ${-dd} día(s)`,color:'#c0392b',dias:dd};
+  if(dd===0) return {txt:'Es hoy',color:'#c0392b',dias:0};
+  if(dd<=30) return {txt:`Faltan ${dd} día(s)`,color:'#b8860b',dias:dd};
+  if(dd<=90) return {txt:`Faltan ${dd} días`,color:'#157f4c',dias:dd};
+  return {txt:`Faltan ~${Math.round(dd/30)} meses`,color:'#157f4c',dias:dd};
+}
+function repMantHaystack(c){
+  const cli=(typeof clientes!=="undefined"?clientes:[]).find(x=>x.id===c.clienteId)||{};
+  return [c.clienteNombre,c.numero,c.clienteCode,c.alias,c.nis,
+    cli.nombre,cli.apellido,cli.empresa,cli.alias,cli.nit,cli.telefono,cli.correo,cli.municipio,cli.departamento
+  ].map(v=>(v||'').toString().toLowerCase()).join(' ');
+}
+function repMantList(){
+  const est=repF.mantEstado||'ambos';
+  const q=(repF.mantSearch||'').toLowerCase().trim();
+  return (cotizaciones||[]).filter(c=>{
+    if(!c.fechaEntrega) return false;
+    if(est==='ambos'){ if(!(c.estado==='Finalizado'||c.estado==='Archivada')) return false; }
+    else { if(c.estado!==est) return false; }
+    if(q && !repMantHaystack(c).includes(q)) return false;
+    return true;
+  }).sort((a,b)=>{
+    const da=a.proxMant?daysUntilISO(a.proxMant):Infinity;
+    const db=b.proxMant?daysUntilISO(b.proxMant):Infinity;
+    if(da!==db) return da-db;
+    return (a.fechaEntrega||'').localeCompare(b.fechaEntrega||'');
+  });
+}
+function repMantCards(list){
+  const conProx=list.filter(c=>c.proxMant).length;
+  const venc=list.filter(c=>c.proxMant&&daysUntilISO(c.proxMant)<0).length;
+  const prox30=list.filter(c=>{const d=c.proxMant?daysUntilISO(c.proxMant):null;return d!=null&&d>=0&&d<=30;}).length;
+  return [
+    {k:'Proyectos',v:String(list.length)},
+    {k:'Con próximo programado',v:String(conProx)},
+    {k:'Próximos (≤30 días)',v:String(prox30),c:'#b8860b'},
+    {k:'Vencidos',v:String(venc),c:'#c0392b'}
+  ];
+}
+function repMantEstadoLabel(){ return {ambos:'Finalizados y Archivados',Finalizado:'Finalizados',Archivada:'Archivados'}[repF.mantEstado||'ambos']; }
+function repMantTableHTML(){
+  const list=repMantList();
+  const cards=repMantCards(list);
+  const cardsHTML=`<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px">${cards.map(c=>`<div style="background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:8px 13px;min-width:120px"><div style="font-size:9px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">${esc(c.k)}</div><div style="font-size:17px;font-weight:800;color:${c.c||'var(--navy)'};margin-top:2px">${esc(c.v)}</div></div>`).join("")}</div>`;
+  const head=`<tr>${['Proyecto','Entrega','Antigüedad','Mantenimientos hechos','Próximo mantenimiento'].map(h=>`<th style="padding:7px 10px;background:var(--navy);color:#fff;font-size:10px;text-transform:uppercase;letter-spacing:.5px;text-align:left">${h}</th>`).join("")}</tr>`;
+  const td='padding:7px 10px;border-bottom:1px solid var(--line);font-size:12px;vertical-align:top';
+  const rowsHTML=list.length?list.map(c=>{
+    const proy=esc(c.clienteNombre||'(sin cliente)')+(c.alias?` <span style="color:var(--blue);font-weight:700">✦ ${esc(c.alias)}</span>`:'');
+    const ant=antiguedadTxt(c.fechaEntrega);
+    const hist=mantArr(c);
+    const chips=hist.length?hist.map(m=>`<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(21,127,76,.1);color:#157f4c;font-size:10.5px;font-weight:700;padding:2px 6px;border-radius:20px;margin:0 3px 3px 0">${fmtDate(m.fecha)}<span onclick="mantDel('${c.id}','${m.fecha}')" title="Quitar" style="cursor:pointer;color:#c0392b;font-weight:800">✕</span></span>`).join(''):`<span style="font-size:10.5px;color:var(--muted);font-style:italic">Ninguno aún</span>`;
+    const addCtl=`<div style="margin-top:4px;display:flex;align-items:center;gap:4px"><input type="date" id="mantNew_${c.id}" value="${todayISO()}" style="font-size:10.5px;padding:2px 5px;border:1.5px solid var(--line);border-radius:6px"><button type="button" onclick="mantAdd('${c.id}')" title="Registrar mantenimiento en esa fecha" style="font-size:10.5px;font-weight:800;border:none;background:var(--navy);color:#fff;border-radius:6px;padding:3px 8px;cursor:pointer">➕ Marcar</button></div>`;
+    let proxCell;
+    if(c.proxMant){
+      const r=mantRestante(c.proxMant);
+      proxCell=`<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap"><input type="date" value="${c.proxMant}" onchange="mantSetProx('${c.id}',this.value)" style="font-size:10.5px;padding:2px 5px;border:1.5px solid var(--line);border-radius:6px"><button type="button" onclick="mantClearProx('${c.id}')" title="Quitar próximo" style="font-size:12px;color:#c0392b;background:none;border:none;cursor:pointer">✕</button></div><div style="font-size:10.5px;font-weight:800;color:${r.color};margin-top:3px">${esc(r.txt)}</div>`;
+    } else {
+      proxCell=`<button type="button" onclick="mantSetProxDefault('${c.id}')" title="Programar el próximo mantenimiento (por defecto a 1 año)" style="font-size:10.5px;font-weight:800;border:1.5px solid var(--line);background:#fff;color:var(--navy);border-radius:7px;padding:4px 9px;cursor:pointer">📅 Programar</button><div style="font-size:10px;color:var(--muted);margin-top:3px">Sin programar</div>`;
+    }
+    return `<tr>
+      <td style="${td}">${proy}<div style="font-size:10px;color:var(--muted)">${esc(c.numero||'')} · ${c.estado==='Archivada'?'Archivado':'Finalizado'}</div></td>
+      <td style="${td};white-space:nowrap;color:var(--muted)">${fmtDate(c.fechaEntrega)||'—'}</td>
+      <td style="${td};white-space:nowrap;font-weight:700;color:var(--navy)">${esc(ant)}</td>
+      <td style="${td}">${chips}${addCtl}</td>
+      <td style="${td}">${proxCell}</td>
+    </tr>`;
+  }).join(''):`<tr><td colspan="5" style="text-align:center;color:var(--muted);font-style:italic;padding:18px">Sin proyectos entregados (con fecha de entrega) que coincidan con el filtro.</td></tr>`;
+  return `${cardsHTML}
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Proyectos entregados con fecha de entrega · Estado: ${esc(repMantEstadoLabel())}${repF.mantSearch?` · Buscar: ${esc(repF.mantSearch)}`:''}</div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">${head}${rowsHTML}</table></div>
+    <div style="font-size:10.5px;color:var(--muted);margin-top:9px;font-style:italic">Marca la fecha de cada mantenimiento realizado. Programa el próximo solo si se le va a hacer (sale por defecto a 1 año del último mantenimiento, o de la entrega si aún no hay ninguno) y puedes cambiarlo o quitarlo.</div>`;
+}
+function mantAdd(cotId){
+  const c=cotizaciones.find(x=>x.id===cotId); if(!c)return;
+  const inp=document.getElementById('mantNew_'+cotId);
+  const f=String((inp&&inp.value)||todayISO()).slice(0,10);
+  if(!c.mantenimientos) c.mantenimientos=[];
+  if(c.mantenimientos.some(m=>m.fecha===f)){ toast('Ya hay un mantenimiento en esa fecha',true); return; }
+  c.mantenimientos.push({fecha:f});
+  c.updated=Date.now(); qsave(); repRenderResult();
+  toast('Mantenimiento registrado ✓');
+}
+function mantDel(cotId,fechaISO){
+  const c=cotizaciones.find(x=>x.id===cotId); if(!c||!Array.isArray(c.mantenimientos))return;
+  if(!confirm('¿Quitar el mantenimiento del '+fmtDate(fechaISO)+'?'))return;
+  c.mantenimientos=c.mantenimientos.filter(m=>m.fecha!==fechaISO);
+  c.updated=Date.now(); qsave(); repRenderResult();
+}
+function mantSetProxDefault(cotId){
+  const c=cotizaciones.find(x=>x.id===cotId); if(!c)return;
+  const base=mantUltimaISO(c)||c.fechaEntrega||todayISO();
+  c.proxMant=addMonthsISO(base,12);
+  c.updated=Date.now(); qsave(); repRenderResult();
+}
+function mantSetProx(cotId,val){
+  const c=cotizaciones.find(x=>x.id===cotId); if(!c)return;
+  c.proxMant=(String(val||'').slice(0,10))||null;
+  c.updated=Date.now(); qsave(); repRenderResult();
+}
+function mantClearProx(cotId){
+  const c=cotizaciones.find(x=>x.id===cotId); if(!c)return;
+  c.proxMant=null; c.updated=Date.now(); qsave(); repRenderResult();
+}
+function repMantData(){
+  const list=repMantList();
+  const rows=list.map(c=>{
+    const hist=mantArr(c);
+    const ult=hist.length?fmtDate(hist[hist.length-1].fecha):'—';
+    const r=mantRestante(c.proxMant);
+    return [
+      (c.clienteNombre||'(sin cliente)')+(c.alias?' · '+c.alias:''),
+      {t:c.numero||'—',a:'center'},
+      fmtDate(c.fechaEntrega)||'—',
+      antiguedadTxt(c.fechaEntrega),
+      {t:String(hist.length),a:'center'},
+      ult,
+      c.proxMant?fmtDate(c.proxMant):'—',
+      {t:c.proxMant?r.txt:'—', c:c.proxMant?r.color:null, b:!!(c.proxMant&&r.dias!=null&&r.dias<=30)}
+    ];
+  });
+  return {
+    titulo:'Mantenimientos de proyectos',
+    periodoTxt:'Proyectos entregados (Finalizados/Archivados) con fecha de entrega',
+    filtrosTxt:repFiltrosTxt([['Estado',repMantEstadoLabel()],['Buscar',repF.mantSearch||'Todos']]),
+    columns:[{label:'Proyecto'},{label:'No.',a:'center'},{label:'Entrega'},{label:'Antigüedad'},{label:'Hechos',a:'center'},{label:'Último mant.'},{label:'Próximo'},{label:'Restante'}],
+    rows,
+    cards:repMantCards(list),
+    nota:'Antigüedad calculada desde la fecha de entrega. "Próximo" es la fecha programada del siguiente mantenimiento (vacío si no se ha programado). Generalmente anual.'
+  };
+}
+
 /* ---- UI Reportes ---- */
 function repRender(){
   if(!repInited){ repInited=true; const ym=todayISO().slice(0,7); repF.mes=ym; const b=repMonthBounds(ym); repF.desde=b.desde; repF.hasta=b.hasta; }
@@ -7508,7 +7660,7 @@ function repRenderTypeBar(){
   }).join("");
 }
 function repSetType(id){ repType=id; repRender(); }
-function repClear(){ const ym=todayISO().slice(0,7); const b=repMonthBounds(ym); repF={desde:b.desde,hasta:b.hasta,mes:ym,vendedor:'',cliente:'',estVencer:'pendientes',estVend:'vendidas',garEstado:'todas',garMeses:''}; repRender(); }
+function repClear(){ const ym=todayISO().slice(0,7); const b=repMonthBounds(ym); repF={desde:b.desde,hasta:b.hasta,mes:ym,vendedor:'',cliente:'',estVencer:'pendientes',estVend:'vendidas',garEstado:'todas',garMeses:'',mantEstado:'ambos',mantSearch:''}; repRender(); }
 function repFld(label,inner){ return `<div style="display:flex;flex-direction:column;gap:3px">${label?`<label style="font-size:9.5px;font-weight:800;color:var(--muted);letter-spacing:.3px;text-transform:uppercase">${label}</label>`:''}${inner}</div>`; }
 function repVendSelect(){
   const vs=repVendedores();
@@ -7534,6 +7686,9 @@ function repRenderFilters(){
       +repFld('Vendedor',repVendSelect())
       +repFld('Creada desde',`<input id="repDesde" type="date" value="${repF.desde||''}" onchange="repApply()" style="${REP_INP}">`)
       +repFld('Hasta',`<input id="repHasta" type="date" value="${repF.hasta||''}" onchange="repApply()" style="${REP_INP}">`);
+  } else if(repType==='mant'){
+    f=repFld('Estado',`<select id="repMantEstado" onchange="repApply()" style="${REP_INP}">${repOptHTML('ambos','Finalizados y Archivados',repF.mantEstado)}${repOptHTML('Finalizado','Finalizados',repF.mantEstado)}${repOptHTML('Archivada','Archivados',repF.mantEstado)}</select>`)
+      +repFld('Buscar proyecto',`<input id="repMantSearch" type="text" placeholder="Cliente, alias, No., NIS, NIT..." value="${esc(repF.mantSearch||'')}" oninput="repApply()" style="${REP_INP};min-width:230px">`);
   } else {
     f=repFld('Vendedor',repVendSelect())
       +repFld('Cliente',`<input id="repCliente" type="text" placeholder="Buscar cliente..." value="${esc(repF.cliente||'')}" oninput="repApply()" style="${REP_INP};min-width:190px">`);
@@ -7551,6 +7706,7 @@ function repApply(){
   if((v=g('repGarEstado'))!==undefined) repF.garEstado=v;
   if(repType==='vencer' && (v=g('repEstado'))!==undefined) repF.estVencer=v;
   if(repType==='vendedor' && (v=g('repEstado'))!==undefined) repF.estVend=v;
+  if(repType==='mant'){ if((v=g('repMantEstado'))!==undefined) repF.mantEstado=v; if((v=g('repMantSearch'))!==undefined) repF.mantSearch=v; }
   // Si el rango manual deja de coincidir con el mes elegido, marcar como personalizado
   if(repF.mes){ const b=repMonthBounds(repF.mes); if(repF.desde!==b.desde||repF.hasta!==b.hasta){ repF.mes=''; const me=$('repMes'); if(me) me.value=''; } }
   repRenderResult();
@@ -7579,11 +7735,12 @@ function repTableHTML(d){
 }
 function repRenderResult(){
   const box=$("repResult"); if(!box)return;
+  if(repType==='mant'){ box.innerHTML=repMantTableHTML(); return; }
   box.innerHTML=repTableHTML(repData());
 }
 
 /* ---- PDF de cualquier reporte (mismo tema empresarial) ---- */
-function repPrint(){ const d=repData(); if(!d){toast("No hay reporte para imprimir",true);return;} printReport(d); }
+function repPrint(){ if(repType==='mant'){ printReport(repMantData()); return; } const d=repData(); if(!d){toast("No hay reporte para imprimir",true);return;} printReport(d); }
 function printReport(d){
   const fmtFecha=f=>{if(!f)return"";const x=new Date(f+"T12:00:00");return isNaN(x)?esc(f):x.toLocaleDateString("es-GT",{day:"numeric",month:"short",year:"numeric"})};
   const vendedor=CFG.firmante||"";
