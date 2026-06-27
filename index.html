@@ -1618,6 +1618,7 @@ window.DESAuth = DESAuth;
         <div id="finBancoDesglose" style="font-size:10px;color:var(--muted)"></div>
         <div id="finDisponibleTotal" style="font-size:10.5px;color:var(--muted);font-weight:700;margin-top:1px"></div>
       </div>
+      <button type="button" class="btn ghost" onclick="finPrintResumenActual()" style="font-size:12.5px;font-weight:800;white-space:nowrap" title="Genera un PDF con el resumen financiero del período actual (parcial)">📄 PDF resumen</button>
       <button type="button" class="btn primary admin-only" onclick="finHacerCierre()" style="font-size:12.5px;font-weight:800;white-space:nowrap" title="Cierra el período actual: guarda el resumen y reinicia las 3 categorías dejando solo el saldo anterior">📅 Cierre</button>
     </div>
   </div>
@@ -7550,6 +7551,286 @@ function finDelCierre(id){
   finCierresSave(); finRenderCierres();
   toast("Cierre borrado del historial");
 }
+/* ---- PDF · Resumen financiero (mismo tema que cotizaciones) ---- */
+function finPrintResumenActual(){ printFinResumen(finBuildResumenData()); }
+function finPrintCierre(id){
+  const ci=cierres.find(x=>x.id===id);
+  if(!ci){toast("Cierre no encontrado",true);return;}
+  printFinResumen(ci);
+}
+function finBuildResumenData(){
+  const saldos={}; FIN_CATS.forEach(([k])=>{saldos[k]=finCatBalance(k);});
+  const banco=finBancoTotal();
+  const proyectos=cotizaciones
+    .filter(c=>(c.estado==='Aprobada'||c.estado==='Finalizado')&&!c.fondosLiberados)
+    .map(c=>({nombre:c.clienteNombre||'(sin cliente)',numero:c.numero||'',alias:c.alias||'',saldo:finSaldoProyecto(c.id)}))
+    .filter(p=>Math.abs(p.saldo)>=0.005)
+    .sort((a,b)=>b.saldo-a.saldo);
+  return {
+    parcial:true, etiqueta:'Período actual', fecha:todayISO(),
+    saldos, banco:banco.total, bancoProy:banco.proy, bancoCats:banco.cats,
+    movimientos:JSON.parse(JSON.stringify(finanzas)), proyectos
+  };
+}
+function printFinResumen(data){
+  const fmtFecha=f=>{if(!f)return"";const d=new Date(f+"T12:00:00");return isNaN(d)?esc(f):d.toLocaleDateString("es-GT",{day:"numeric",month:"short",year:"numeric"})};
+  const fQ=n=>"Q"+(Number(n)||0).toLocaleString("es-GT",{minimumFractionDigits:2,maximumFractionDigits:2});
+  const CATS=FIN_CATS;
+  const movs=Array.isArray(data.movimientos)?data.movimientos:[];
+  const saldos=data.saldos||{};
+  const proyectos=Array.isArray(data.proyectos)?data.proyectos:[];
+
+  // Totales (solo movimientos "Listo" suman; los pendientes se reportan aparte)
+  let totEnt=0,totSal=0,pendEnt=0,pendSal=0,nList=0,nPend=0;
+  movs.forEach(m=>{
+    const e=parseFloat(m.entrada)||0,s=parseFloat(m.salida)||0;
+    if(m.estado==='completado'){totEnt+=e;totSal+=s;nList++;}else{pendEnt+=e;pendSal+=s;nPend++;}
+  });
+  const saldoCats=totEnt-totSal;
+
+  // Empresa / contacto / firma (idéntico a la cotización)
+  const vendedor=CFG.firmante||"";
+  const waSvg='<svg viewBox="0 0 24 24" style="height:1.05em;width:1.05em;vertical-align:-0.18em;margin-right:5px" xmlns="http://www.w3.org/2000/svg"><path fill="#25D366" d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>';
+  const telLine=CFG.tel?(CFG.telWhats?(waSvg+CFG.tel):("Tel: "+CFG.tel)):"";
+  const contactLines=[CFG.direccion,telLine,CFG.correo].filter(Boolean).join("<br>");
+  const _redes=[
+    {url:CFG.facebook,  color:"#1877F2", size:20, path:"M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987H7.898V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.891h-2.33v6.987C18.343 21.128 22 16.991 22 12z"},
+    {url:CFG.tiktok,    color:"#010101", size:16, path:"M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"},
+    {url:CFG.instagram, color:"#E4405F", size:17, path:"M7 2C4.243 2 2 4.243 2 7v10c0 2.757 2.243 5 5 5h10c2.757 0 5-2.243 5-5V7c0-2.757-2.243-5-5-5H7zm0 2h10c1.654 0 3 1.346 3 3v10c0 1.654-1.346 3-3 3H7c-1.654 0-3-1.346-3-3V7c0-1.654 1.346-3 3-3zm5 3a5 5 0 100 10 5 5 0 000-10zm0 2a3 3 0 110 6 3 3 0 010-6zm4.5-2.5a1 1 0 100 2 1 1 0 000-2z"},
+    {url:CFG.whatsappLink, color:"#25D366", size:17.5, path:"M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"}
+  ];
+  const _redesIcons=CFG.socialOn ? _redes.filter(s=>s.url&&String(s.url).trim()).map(s=>`<a href="${esc(String(s.url).trim())}" target="_blank" style="text-decoration:none;display:inline-flex;align-items:center"><svg viewBox="0 0 24 24" style="width:${s.size}px;height:${s.size}px;vertical-align:middle"><path fill="${s.color}" d="${s.path}"/></svg></a>`).join("") : "";
+  const socialHTML=_redesIcons?`<div style="margin-top:7px;display:flex;gap:9px;justify-content:flex-end;align-items:center">${_redesIcons}</div>`:"";
+
+  // Tarjetas resumen (specs)
+  const specsHTML=`
+  <div class="specs">
+    <div class="spec"><div class="k">En proyectos por liberar</div><div class="v">${fQ(data.bancoProy||0)}</div></div>
+    <div class="spec"><div class="k">En categorías</div><div class="v">${fQ(data.bancoCats!=null?data.bancoCats:saldoCats)}</div></div>
+    <div class="spec"><div class="k">Entradas del período</div><div class="v" style="color:var(--green)">${fQ(totEnt)}</div></div>
+    <div class="spec"><div class="k">Salidas del período</div><div class="v" style="color:#c0392b">${fQ(totSal)}</div></div>
+  </div>
+  <div class="saving">
+    <div class="lbl">Total en banco<small>Fondos de proyectos por liberar + saldo de las 3 categorías</small></div>
+    <div class="amt">${fQ(data.banco||0)}</div>
+  </div>`;
+
+  // Tarjetas de balance por categoría
+  const catCardsHTML=`<div class="catgrid">${CATS.map(([k,label])=>{
+    const bal=saldos[k]!=null?saldos[k]:0;
+    return `<div class="catcard"><div class="k">${esc(label)}</div><div class="v" style="color:${bal>=0?'var(--green)':'#c0392b'}">${fQ(bal)}</div></div>`;
+  }).join("")}</div>`;
+
+  // Detalle de movimientos por categoría
+  const detalleHTML=CATS.map(([k,label])=>{
+    const list=movs.filter(m=>m.categoria===k)
+      .sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||"")||((b.createdAt||0)-(a.createdAt||0)));
+    let ent=0,sal=0; list.forEach(m=>{if(m.estado==='completado'){ent+=parseFloat(m.entrada)||0;sal+=parseFloat(m.salida)||0;}});
+    const bal=saldos[k]!=null?saldos[k]:(ent-sal);
+    const rows=list.length?list.map(m=>{
+      const e=parseFloat(m.entrada)||0,s=parseFloat(m.salida)||0,done=m.estado==='completado';
+      return `<tr${done?'':' class="pend"'}>
+        <td class="dt">${fmtFecha(m.fecha)||"—"}</td>
+        <td>${esc(m.descripcion||"")}${m.origen==='liberacion'?' <span class="tagl">Liberación</span>':''}${m.origen==='apertura'?' <span class="tagl">Apertura</span>':''}</td>
+        <td class="num pos">${e>0?fQ(e):""}</td>
+        <td class="num neg">${s>0?fQ(s):""}</td>
+        <td class="st">${done?'<span class="ok">Listo</span>':'<span class="pd">Pendiente</span>'}</td>
+      </tr>`;
+    }).join(""):`<tr><td colspan="5" class="empty">Sin movimientos en esta categoría.</td></tr>`;
+    return `
+    <div class="sec"><h3>${esc(label)}</h3><span class="secbal" style="color:${bal>=0?'var(--green)':'#c0392b'}">${fQ(bal)}</span></div>
+    <table class="mv">
+      <thead><tr><th>Fecha</th><th>Descripción</th><th class="num">Entrada</th><th class="num">Salida</th><th class="st">Estado</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  }).join("");
+
+  // Proyectos por liberar (si hay)
+  const proyHTML=proyectos.length?`
+    <div class="sec"><h3>Proyectos por liberar</h3><span class="secbal" style="color:var(--navy)">${fQ(data.bancoProy||0)}</span></div>
+    <table class="mv">
+      <thead><tr><th>Proyecto</th><th>No.</th><th class="num">Saldo disponible</th></tr></thead>
+      <tbody>${proyectos.map(p=>`<tr><td>${esc(p.nombre)}${p.alias?' · '+esc(p.alias):''}</td><td class="dt">${esc(p.numero||"—")}</td><td class="num pos">${fQ(p.saldo)}</td></tr>`).join("")}</tbody>
+    </table>`:"";
+
+  // Nota de pendientes
+  const pendHTML=(nPend>0)?`
+  <div class="note">
+    <h4>Movimientos pendientes</h4>
+    <p>Hay <b>${nPend}</b> movimiento(s) en estado pendiente que aún no suman al disponible: entradas ${fQ(pendEnt)} · salidas ${fQ(pendSal)}.</p>
+  </div>`:"";
+
+  const tituloDoc=data.parcial?"RESUMEN FINANCIERO":"CIERRE DE PERÍODO";
+
+  const html=`<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>${esc(tituloDoc)} ${esc(data.etiqueta||"")}</title>
+<style>
+  :root{--ink:#13283f;--muted:#5a6b80;--navy:#0c365f;--blue:#1763b6;--gold:#e0922a;--goldsoft:#fbf2e2;--green:#157f4c;--greensoft:#e7f4ec;--soft:#f4f7fb;--line:#dde6f0}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:#9fb0c4;font-family:"Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif;color:var(--ink)}
+  .bar{position:sticky;top:0;z-index:5;background:var(--navy);color:#fff;padding:11px 16px;text-align:center;font-size:14px;font-weight:600}
+  .bar button{background:var(--gold);color:#3a2402;border:none;border-radius:8px;padding:8px 18px;font-weight:800;cursor:pointer;margin-left:10px;font-size:14px}
+  .page{width:8.5in;min-height:11in;margin:22px auto;background:#fff;box-shadow:0 10px 40px rgba(0,0,0,.25);padding:${CFG.margenTop||1}in ${CFG.margenRight||1}in ${CFG.margenBottom||1}in ${CFG.margenLeft||1}in;position:relative;display:flex;flex-direction:column}
+  .head{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;border-bottom:3px solid var(--navy);padding-bottom:16px}
+  .brand{display:flex;gap:13px;align-items:center}
+  .logo{width:52px;height:52px;border-radius:13px;background:linear-gradient(140deg,var(--blue),var(--navy));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:19px;letter-spacing:.5px;box-shadow:0 5px 14px rgba(12,54,95,.35)}
+  .brand .nm{font-size:16.5px;font-weight:800;color:var(--navy);line-height:1.15}
+  .brand .tg{font-size:11px;color:var(--muted);margin-top:3px;letter-spacing:.3px}
+  .docbox{text-align:right}
+  .docbox .t{font-size:19px;font-weight:800;letter-spacing:1.5px;color:var(--navy)}
+  .docbox .meta{margin-top:6px;font-size:11.5px;color:var(--muted);line-height:1.7}
+  .docbox .meta b{color:var(--ink)}
+  .periodline{margin:15px 0 4px;font-size:15px;font-weight:800;color:var(--navy)}
+  .periodline span{font-size:12px;font-weight:600;color:var(--muted)}
+  .sec{display:flex;align-items:center;gap:10px;margin:20px 0 11px}
+  .sec h3{margin:0;font-size:11.5px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--navy);white-space:nowrap}
+  .sec::after{content:"";flex:1;height:1px;background:var(--line)}
+  .sec .secbal{font-size:13px;font-weight:800;white-space:nowrap}
+  .specs{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .spec{background:var(--soft);border:1px solid var(--line);border-radius:11px;padding:11px 12px}
+  .spec .k{font-size:9.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700}
+  .spec .v{font-size:16px;font-weight:800;color:var(--navy);margin-top:4px;line-height:1}
+  .saving{margin-top:11px;display:flex;align-items:center;justify-content:space-between;gap:14px;background:var(--greensoft);border:1px solid #bfe3cd;border-left:5px solid var(--green);border-radius:11px;padding:12px 16px}
+  .saving .lbl{font-size:12px;color:#0f5c37;font-weight:700;line-height:1.3}
+  .saving .lbl small{display:block;font-weight:500;color:#3d7a5b;font-size:10.5px;margin-top:1px}
+  .saving .amt{font-size:25px;font-weight:800;color:var(--green);white-space:nowrap}
+  .catgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:6px}
+  .catcard{background:#fff;border:1.5px solid var(--line);border-radius:11px;padding:12px 14px;text-align:center}
+  .catcard .k{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:800}
+  .catcard .v{font-size:19px;font-weight:800;margin-top:4px;line-height:1}
+  table.mv{width:100%;border-collapse:collapse;margin-top:2px}
+  table.mv thead th{background:var(--navy);color:#fff;font-size:9.5px;text-transform:uppercase;letter-spacing:.7px;padding:7px 10px;text-align:left}
+  table.mv thead th.num{text-align:right}
+  table.mv thead th.st{text-align:center;width:78px}
+  table.mv tbody td{padding:6px 10px;border-bottom:1px solid var(--line);font-size:11.5px;vertical-align:middle}
+  table.mv tbody td.dt{color:var(--muted);white-space:nowrap;font-size:11px}
+  table.mv tbody td.num{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+  table.mv tbody td.num.pos{color:var(--green)}
+  table.mv tbody td.num.neg{color:#c0392b}
+  table.mv tbody td.st{text-align:center}
+  table.mv tbody tr:nth-child(even){background:#f8fafc}
+  table.mv tbody tr.pend td{opacity:.62}
+  table.mv .empty{text-align:center;color:var(--muted);font-style:italic;padding:12px}
+  .ok{font-size:9.5px;font-weight:800;color:var(--green);background:rgba(21,127,76,.13);padding:2px 8px;border-radius:20px}
+  .pd{font-size:9.5px;font-weight:800;color:#b8860b;background:rgba(230,180,0,.18);padding:2px 8px;border-radius:20px}
+  .tagl{font-size:8.5px;font-weight:800;color:var(--blue);background:rgba(14,99,190,.1);padding:1px 6px;border-radius:5px;vertical-align:middle}
+  .totwrap{display:flex;justify-content:flex-end;margin-top:14px}
+  .totals{width:62%}
+  .totals .r{display:flex;justify-content:space-between;padding:7px 14px;font-size:13px}
+  .totals .r .lab{color:var(--muted);font-weight:600}
+  .totals .grand{background:var(--navy);color:#fff;border-radius:10px;padding:12px 16px;margin-top:6px;display:flex;justify-content:space-between;align-items:center}
+  .totals .grand .lab{font-size:12.5px;font-weight:700;letter-spacing:.5px}
+  .totals .grand .val{font-size:21px;font-weight:800}
+  .note{margin-top:18px;background:var(--goldsoft);border:1px solid #f0dcb6;border-radius:11px;padding:12px 15px}
+  .note h4{margin:0 0 5px;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9a6512}
+  .note p{margin:0;font-size:11px;color:#5d4a25;line-height:1.55}
+  .foot{margin-top:auto;padding-top:22px}
+  .sign{display:flex;justify-content:space-between;align-items:flex-end;gap:20px}
+  .sign .line{width:235px;border-top:1.5px solid var(--ink);padding-top:6px;text-align:center}
+  .sign .line .n{font-weight:800;font-size:13px}
+  .sign .line .r{font-size:10.5px;color:var(--muted)}
+  .contact{font-size:10.5px;color:var(--muted);text-align:right;line-height:1.6}
+  .stripe{margin-top:16px;height:5px;border-radius:4px;background:linear-gradient(90deg,var(--navy),var(--blue) 55%,var(--gold))}
+  @media print{
+    @page{size:Letter;margin:${CFG.margenTop||1}in ${CFG.margenRight||1}in ${CFG.margenBottom||1}in ${CFG.margenLeft||1}in}
+    html,body{background:#fff}
+    .bar{display:none}
+    .page{width:auto;min-height:auto;margin:0;padding:0;box-shadow:none;display:block}
+    .head{padding-bottom:8px}
+    .periodline{margin:8px 0 2px}
+    .sec{margin:11px 0 5px}
+    .specs{gap:6px;break-inside:avoid}
+    .spec{padding:7px 9px}
+    .spec .v{font-size:13px}
+    .saving{margin-top:6px;padding:7px 12px;break-inside:avoid}
+    .saving .amt{font-size:18px}
+    .catgrid{gap:6px;break-inside:avoid}
+    .catcard{padding:7px 9px}
+    .catcard .v{font-size:14px}
+    table.mv thead th{padding:4px 8px}
+    table.mv tbody td{padding:3px 8px;font-size:10.5px}
+    table.mv tbody tr{break-inside:avoid}
+    .totwrap{margin-top:7px;break-inside:avoid}
+    .totals .grand .val{font-size:16px}
+    .note{margin-top:9px;padding:7px 11px;break-inside:avoid}
+    .foot{margin-top:12px;padding-top:12px;break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+<div class="bar">Vista previa — imprime o guarda como PDF para verlo final <button onclick="window.print()">🖨 Imprimir / Guardar PDF</button></div>
+<div class="page">
+
+  <div class="head">
+    <div class="brand">
+      ${CFG.logoData
+        ?`<img src="${CFG.logoData}" style="height:${CFG.logoSize||52}px;width:auto;max-width:220px;object-fit:contain;border-radius:13px;${CFG.logoTrimBg?'mix-blend-mode:multiply':''}" alt="Logo">`
+        :`<div class="logo">DES</div>`}
+      <div>
+        <div class="nm">${esc(CFG.nombre||"")}</div>
+        <div class="tg">${esc(CFG.lema||"")}</div>
+      </div>
+    </div>
+    <div class="docbox">
+      <div class="t">${esc(tituloDoc)}</div>
+      <div class="meta">
+        <div>Emitido: <b>${fmtFecha(todayISO())}</b></div>
+        ${data.parcial?`<div style="font-size:10.5px">Estado al momento de impresión</div>`:`<div>Cierre: <b>${fmtFecha(data.fecha)}</b></div>`}
+      </div>
+    </div>
+  </div>
+
+  <div class="periodline">${esc(data.etiqueta||"")} <span>· ${data.parcial?"resumen parcial del período en curso":"período cerrado"}</span></div>
+
+  ${specsHTML}
+
+  <div class="sec"><h3>Saldo por categoría</h3></div>
+  ${catCardsHTML}
+
+  ${detalleHTML}
+
+  ${proyHTML}
+
+  <div class="totwrap">
+    <div class="totals">
+      <div class="r"><span class="lab">Total entradas (Listo)</span><span style="color:var(--green);font-weight:700">${fQ(totEnt)}</span></div>
+      <div class="r"><span class="lab">Total salidas (Listo)</span><span style="color:#c0392b;font-weight:700">${fQ(totSal)}</span></div>
+      <div class="r"><span class="lab">Saldo en categorías</span><span style="font-weight:700">${fQ(saldoCats)}</span></div>
+      <div class="grand">
+        <span class="lab">TOTAL EN BANCO</span>
+        <span class="val">${fQ(data.banco||0)}</span>
+      </div>
+    </div>
+  </div>
+
+  ${pendHTML}
+
+  <div class="foot">
+    <div class="sign">
+      <div style="text-align:center">
+        ${CFG.firmaData?`<img src="${CFG.firmaData}" style="height:${CFG.firmaSize||52}px;width:auto;max-width:180px;object-fit:contain;display:block;margin:0 auto 6px;${CFG.firmaTrimBg?'mix-blend-mode:multiply':''}" alt="Firma">`:''}
+        <div class="line">
+          <div class="n">${esc(vendedor)}</div>
+          <div class="r">${esc(CFG.cargo||"")}</div>
+        </div>
+      </div>
+      ${(contactLines||socialHTML)?`<div class="contact">${contactLines}${socialHTML}</div>`:""}
+    </div>
+    <div class="stripe"></div>
+  </div>
+
+</div>
+</body>
+</html>`;
+
+  const w=window.open("","_blank");
+  if(!w){toast("Permite ventanas emergentes para ver el PDF",true);return}
+  w.document.write(html);w.document.close();
+}
 function finRenderCierres(){
   const box=$("finCierres"); if(!box) return;
   if(!cierres.length){ box.innerHTML=`<div style="font-size:12px;color:var(--muted);padding:8px 0">Aún no hay cierres. Usa el botón <b>📅 Cierre</b> cuando quieras cerrar un período.</div>`; return; }
@@ -7564,6 +7845,7 @@ function finRenderCierres(){
         <div style="font-size:10.5px;color:var(--muted)">Mant ${moneyGTQ(s.mantenimiento||0)} · Imp ${moneyGTQ(s.impuestos||0)} · Otros ${moneyGTQ(s.otros||0)} · <b style="color:var(--navy)">Banco ${moneyGTQ(ci.banco||0)}</b></div>
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="btn ghost sm" style="font-size:11px" onclick="finPrintCierre('${ci.id}')" title="Imprimir / Guardar PDF de este cierre">🖨 PDF</button>
         ${esUltimo?`<button class="btn ghost sm admin-only" style="font-size:11px" onclick="finUndoCierre('${ci.id}')" title="Deshacer este cierre y restaurar los movimientos">↺ Deshacer</button>`:""}
         <button class="btn ghost sm admin-only" style="font-size:11px;color:#c0392b" onclick="finDelCierre('${ci.id}')" title="Borrar del historial">🗑</button>
       </div>
