@@ -7290,8 +7290,9 @@ function repMonthBarHTML(){
   const yrOn=!!repF.anio, mesOn=!!repF.mes, todoOn=!repF.desde&&!repF.hasta;
   return `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:11px;padding-bottom:11px;border-bottom:1px dashed var(--line)">
     <span style="font-size:9.5px;font-weight:800;color:var(--muted);letter-spacing:.3px;text-transform:uppercase;margin-right:2px">Periodo</span>
-    <button type="button" onclick="repSetYear(${parseInt(yr,10)})" title="Filtrar todo este año" style="${yrOn?sel:unsel}">Año ${yr}</button>
+    <button type="button" onclick="repSetYear(${parseInt(yr,10)})" title="Filtrar todo este año" style="${yrOn?sel:unsel}">Año</button>
     <button type="button" onclick="repYearStep(-1)" title="Año anterior" style="${STEP}">‹</button>
+    <b style="font-size:12.5px;color:var(--navy);min-width:42px;text-align:center">${yr}</b>
     <button type="button" onclick="repYearStep(1)" title="Año siguiente" style="${STEP}">›</button>
     <span style="width:1px;height:18px;background:var(--line);margin:0 4px"></span>
     <button type="button" onclick="repSetMonth('${repF.mes||ymCur}')" title="Filtrar por mes" style="${mesOn?sel:unsel}">Mes</button>
