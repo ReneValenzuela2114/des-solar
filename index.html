@@ -3648,6 +3648,12 @@ function archiveSubmit(e){
     const existing=cotizaciones.find(x=>x.id===aEditId);
     if(existing&&existing.archivoPdf&&!file)cot.archivoPdf=existing.archivoPdf;
     cot.id=aEditId;cot.created=existing?existing.created:Date.now();
+    // Conservar campos del proyecto que este formulario no edita (no perderlos al guardar)
+    if(existing){
+      ["precioAcordado","fechaEntrega","garantiaMeses","fondosLiberados","fondosLiberadosDetalle","estadoPrevio"].forEach(k=>{
+        if(existing[k]!==undefined) cot[k]=existing[k];
+      });
+    }
   }
   function finish(){
     if(editing){
