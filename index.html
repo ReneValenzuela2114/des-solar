@@ -7329,7 +7329,7 @@ function repDataVencer(){
     const validez=parseInt(c.validez,10)||0;
     const vence=validez?addDaysISO(c.fecha,validez):'';
     const dias=vence?daysUntilISO(vence):null;
-    items.push({c,validez,vence,dias,total:cotGrandTotal(c)});
+    items.push({c,validez,vence,dias,total:precioAcordado(c)});
   });
   items.sort((a,b)=>(a.dias==null?1e9:a.dias)-(b.dias==null?1e9:b.dias));
   const rows=items.map(({c,validez,vence,dias,total})=>{
@@ -7389,7 +7389,7 @@ function repDataGarantia(){
 function repDataVendedor(){
   const est=repF.estVend||'vendidas';
   const estLabel={vendidas:'Vendidas (Aprobada/Finalizado)',todas:'Todas',Aprobada:'Aprobada',Finalizado:'Finalizado'}[est]||est;
-  const map={};
+  const groups={};
   (cotizaciones||[]).forEach(c=>{
     let ok; if(est==='vendidas') ok=(c.estado==='Aprobada'||c.estado==='Finalizado');
     else if(est==='todas') ok=true; else ok=(c.estado===est);
@@ -7397,22 +7397,44 @@ function repDataVendedor(){
     if(repF.vendedor && (c.vendedor||'')!==repF.vendedor) return;
     if(!repInRange(c.fecha,repF.desde,repF.hasta)) return;
     const v=(c.vendedor||'(sin vendedor)');
-    if(!map[v]) map[v]={n:0,monto:0};
-    map[v].n++; map[v].monto+=cotGrandTotal(c);
+    (groups[v]||(groups[v]=[])).push(c);
   });
-  const arr=Object.keys(map).map(k=>({vend:k,n:map[k].n,monto:map[k].monto})).sort((a,b)=>b.monto-a.monto);
-  const rows=arr.map((r,i)=>[{t:'#'+(i+1),a:'center'}, r.vend, {t:String(r.n),a:'center'},
-    {t:moneyGTQ(r.monto),a:'right',b:true}, {t:moneyGTQ(r.n?r.monto/r.n:0),a:'right'}]);
-  const totN=arr.reduce((a,r)=>a+r.n,0), totM=arr.reduce((a,r)=>a+r.monto,0);
+  const vendList=Object.keys(groups).map(v=>{
+    const arr=groups[v];
+    return {vend:v, items:arr, n:arr.length, monto:arr.reduce((a,c)=>a+precioAcordado(c),0)};
+  }).sort((a,b)=>b.monto-a.monto);
+  const rows=[];
+  vendList.forEach(g=>{
+    const its=[...g.items].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+    its.forEach((c,i)=>{
+      const lbl=(c.clienteNombre||'(sin cliente)')+(c.alias?' · '+c.alias:'');
+      const esp=c.precioAcordado!=null;
+      rows.push([
+        {t:i===0?g.vend:'', b:i===0},
+        lbl,
+        fmtDate(c.fecha)||'—',
+        {t:c.numero||'—',a:'center'},
+        {t:moneyGTQ(precioAcordado(c)),a:'right',c:esp?'#157f4c':null}
+      ]);
+    });
+    rows.push([
+      {t:''},
+      {t:`Subtotal · ${g.n} proyecto(s)`,b:true},
+      {t:''},
+      {t:'',a:'center'},
+      {t:moneyGTQ(g.monto),a:'right',b:true,c:'var(--navy)'}
+    ]);
+  });
+  const totN=vendList.reduce((a,g)=>a+g.n,0), totM=vendList.reduce((a,g)=>a+g.monto,0);
   return {
     titulo:'Ventas por vendedor',
     periodoTxt:repRangoTxt(repF.desde,repF.hasta,'creación'),
     filtrosTxt:repFiltrosTxt([['Estado',estLabel],['Vendedor',repF.vendedor||'Todos']]),
-    columns:[{label:'#',a:'center'},{label:'Vendedor'},{label:'Proyectos',a:'center'},{label:'Monto total',a:'right'},{label:'Ticket prom.',a:'right'}],
+    columns:[{label:'Vendedor'},{label:'Proyecto'},{label:'Creada'},{label:'No.',a:'center'},{label:'Acordado',a:'right'}],
     rows,
-    foot:[{t:''},{t:'Total',b:true},{t:String(totN),a:'center',b:true},{t:moneyGTQ(totM),a:'right'},{t:moneyGTQ(totN?totM/totN:0),a:'right'}],
-    cards:[{k:'Vendedores',v:String(arr.length)},{k:'Proyectos vendidos',v:String(totN)},{k:'Monto total',v:moneyGTQ(totM),c:'#157f4c'}],
-    nota:'Cotizaciones agrupadas por el vendedor asignado, según el estado y la fecha de creación seleccionados.'
+    foot:[{t:'TOTAL',b:true},{t:`${totN} proyecto(s)`},{t:''},{t:'',a:'center'},{t:moneyGTQ(totM),a:'right'}],
+    cards:[{k:'Vendedores',v:String(vendList.length)},{k:'Proyectos vendidos',v:String(totN)},{k:'Monto total (acordado)',v:moneyGTQ(totM),c:'#157f4c'}],
+    nota:'Detalle por vendedor: cada proyecto vendido con su precio acordado (el cotizado salvo que se haya fijado un precio especial; estos van en verde). El subtotal de cada vendedor sirve para calcular comisiones. Según el estado y la fecha de creación seleccionados.'
   };
 }
 function repDataCobrar(){
