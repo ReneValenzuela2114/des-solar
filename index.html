@@ -7263,7 +7263,7 @@ function repMonthBounds(ym){
   return {desde:`${ym}-01`, hasta:`${ym}-${String(last).padStart(2,'0')}`};
 }
 function repSetMonth(ym){ repF.mes=ym||''; repF.anio=''; const b=repMonthBounds(ym); repF.desde=b.desde; repF.hasta=b.hasta; repRender(); }
-function repYearCurrent(){ return repF.anio || todayISO().slice(0,4); }
+function repYearCurrent(){ return repF.anio || (repF.mes? repF.mes.slice(0,4) : todayISO().slice(0,4)); }
 function repSetYear(y){ y=String(y); repF.anio=y; repF.mes=''; repF.desde=`${y}-01-01`; repF.hasta=`${y}-12-31`; repRender(); }
 function repYearStep(delta){ repSetYear((parseInt(repYearCurrent(),10)||new Date().getFullYear())+delta); }
 function repMonthStep(delta){
@@ -7281,24 +7281,24 @@ function repPreset(kind){
   if(kind==='todo'){ repF.mes=''; repF.anio=''; repF.desde=''; repF.hasta=''; repRender(); return; }
 }
 function repMonthBarHTML(){
-  const BTN="font-size:11px;font-weight:700;padding:4px 9px;border-radius:7px;border:1.5px solid var(--line);background:#fff;color:var(--navy);cursor:pointer";
   const STEP="font-size:15px;font-weight:800;padding:2px 9px;border-radius:7px;border:1.5px solid var(--line);background:#fff;color:var(--navy);cursor:pointer;line-height:1";
-  return `<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:11px;padding-bottom:11px;border-bottom:1px dashed var(--line)">
-    <span style="font-size:9.5px;font-weight:800;color:var(--muted);letter-spacing:.3px;text-transform:uppercase">Periodo rápido</span>
+  const sel="font-size:11px;font-weight:800;padding:5px 12px;border-radius:8px;border:1.5px solid var(--navy);background:var(--navy);color:#fff;cursor:pointer";
+  const unsel="font-size:11px;font-weight:800;padding:5px 12px;border-radius:8px;border:1.5px solid var(--line);background:#fff;color:var(--navy);cursor:pointer";
+  const yr=repYearCurrent();
+  const ymCur=todayISO().slice(0,7);
+  const yrOn=!!repF.anio, mesOn=!!repF.mes, todoOn=!repF.desde&&!repF.hasta;
+  return `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:11px;padding-bottom:11px;border-bottom:1px dashed var(--line)">
+    <span style="font-size:9.5px;font-weight:800;color:var(--muted);letter-spacing:.3px;text-transform:uppercase;margin-right:2px">Periodo</span>
+    <button type="button" onclick="repSetYear(${parseInt(yr,10)})" title="Filtrar todo este año" style="${yrOn?sel:unsel}">Año ${yr}</button>
+    <button type="button" onclick="repYearStep(-1)" title="Año anterior" style="${STEP}">‹</button>
+    <button type="button" onclick="repYearStep(1)" title="Año siguiente" style="${STEP}">›</button>
+    <span style="width:1px;height:18px;background:var(--line);margin:0 4px"></span>
+    <button type="button" onclick="repSetMonth('${repF.mes||ymCur}')" title="Filtrar por mes" style="${mesOn?sel:unsel}">Mes</button>
     <button type="button" onclick="repMonthStep(-1)" title="Mes anterior" style="${STEP}">‹</button>
     <input type="month" id="repMes" value="${repF.mes||''}" onchange="repSetMonth(this.value)" style="${REP_INP}">
     <button type="button" onclick="repMonthStep(1)" title="Mes siguiente" style="${STEP}">›</button>
-    <button type="button" onclick="repPreset('mesActual')" style="${BTN}">Este mes</button>
-    <button type="button" onclick="repPreset('mesPasado')" style="${BTN}">Mes pasado</button>
-    <span style="width:1px;height:18px;background:var(--line);margin:0 2px"></span>
-    <span style="font-size:9.5px;font-weight:800;color:var(--muted);text-transform:uppercase">Año</span>
-    <button type="button" onclick="repYearStep(-1)" title="Año anterior" style="${STEP}">‹</button>
-    <b id="repYearLbl" style="font-size:12.5px;color:var(--navy);min-width:38px;text-align:center">${repYearCurrent()}</b>
-    <button type="button" onclick="repYearStep(1)" title="Año siguiente" style="${STEP}">›</button>
-    <button type="button" onclick="repPreset('anioActual')" style="${BTN}">Este año</button>
-    <button type="button" onclick="repPreset('anioPasado')" style="${BTN}">Año pasado</button>
-    <span style="width:1px;height:18px;background:var(--line);margin:0 2px"></span>
-    <button type="button" onclick="repPreset('todo')" style="${BTN}">Todo</button>
+    <span style="width:1px;height:18px;background:var(--line);margin:0 4px"></span>
+    <button type="button" onclick="repPreset('todo')" title="Quitar el filtro de fechas (todas)" style="${todoOn?sel:unsel}">Todo</button>
   </div>`;
 }
 
@@ -7697,7 +7697,7 @@ function repRenderTypeBar(){
   }).join("");
 }
 function repSetType(id){ repType=id; repRender(); }
-function repClear(){ const ym=todayISO().slice(0,7); const b=repMonthBounds(ym); repF={desde:b.desde,hasta:b.hasta,mes:ym,anio:'',vendedor:'',cliente:'',estVencer:'pendientes',estVendArr:['Aprobada','Finalizado'],vendSearch:'',garEstado:'todas',garMeses:'',mantEstado:'ambos',mantSearch:''}; repRender(); }
+function repClear(){ repF={desde:'',hasta:'',mes:'',anio:'',vendedor:'',cliente:'',estVencer:'pendientes',estVendArr:['Aprobada','Finalizado'],vendSearch:'',garEstado:'todas',garMeses:'',mantEstado:'ambos',mantSearch:''}; repRender(); }
 function repFld(label,inner){ return `<div style="display:flex;flex-direction:column;gap:3px">${label?`<label style="font-size:9.5px;font-weight:800;color:var(--muted);letter-spacing:.3px;text-transform:uppercase">${label}</label>`:''}${inner}</div>`; }
 function repVendSelect(){
   const vs=repVendedores();
