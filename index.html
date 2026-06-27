@@ -7243,13 +7243,13 @@ comboRender();
 const REP_TYPES=[
   {id:'vencer',  icon:'⏳', label:'Cotizaciones por vencer'},
   {id:'garantia',icon:'🛡', label:'Garantías de proyectos'},
-  {id:'vendedor',icon:'🏅', label:'Ventas por vendedor'},
+  {id:'vendedor',icon:'🏅', label:'Ventas'},
   {id:'cobrar',  icon:'📥', label:'Cuentas por cobrar'},
   {id:'pagar',   icon:'📤', label:'Cuentas por pagar'},
   {id:'mant',    icon:'🔧', label:'Mantenimientos'}
 ];
 let repType='vencer';
-let repF={desde:'',hasta:'',mes:'',vendedor:'',cliente:'',estVencer:'pendientes',estVend:'vendidas',garEstado:'todas',garMeses:'',mantEstado:'ambos',mantSearch:''};
+let repF={desde:'',hasta:'',mes:'',anio:'',vendedor:'',cliente:'',estVencer:'pendientes',estVendArr:['Aprobada','Finalizado'],vendSearch:'',garEstado:'todas',garMeses:'',mantEstado:'ambos',mantSearch:''};
 let repInited=false;
 let repMantOrder=null; // orden estable de filas de Mantenimientos; null = recalcular al próximo render
 const REP_INP="font-size:12px;padding:5px 8px;border:1.5px solid var(--line);border-radius:7px;outline:none";
@@ -7262,7 +7262,10 @@ function repMonthBounds(ym){
   const last=new Date(y,m,0).getDate();
   return {desde:`${ym}-01`, hasta:`${ym}-${String(last).padStart(2,'0')}`};
 }
-function repSetMonth(ym){ repF.mes=ym||''; const b=repMonthBounds(ym); repF.desde=b.desde; repF.hasta=b.hasta; repRender(); }
+function repSetMonth(ym){ repF.mes=ym||''; repF.anio=''; const b=repMonthBounds(ym); repF.desde=b.desde; repF.hasta=b.hasta; repRender(); }
+function repYearCurrent(){ return repF.anio || todayISO().slice(0,4); }
+function repSetYear(y){ y=String(y); repF.anio=y; repF.mes=''; repF.desde=`${y}-01-01`; repF.hasta=`${y}-12-31`; repRender(); }
+function repYearStep(delta){ repSetYear((parseInt(repYearCurrent(),10)||new Date().getFullYear())+delta); }
 function repMonthStep(delta){
   let ym=repF.mes||todayISO().slice(0,7);
   let [y,m]=ym.split('-').map(n=>parseInt(n,10));
@@ -7273,8 +7276,9 @@ function repPreset(kind){
   const ym=todayISO().slice(0,7);
   if(kind==='mesActual'){ repSetMonth(ym); return; }
   if(kind==='mesPasado'){ let [y,m]=ym.split('-').map(n=>parseInt(n,10)); m--; if(m<1){m=12;y--;} repSetMonth(`${y}-${String(m).padStart(2,'0')}`); return; }
-  if(kind==='anio'){ const y=todayISO().slice(0,4); repF.mes=''; repF.desde=`${y}-01-01`; repF.hasta=`${y}-12-31`; repRender(); return; }
-  if(kind==='todo'){ repF.mes=''; repF.desde=''; repF.hasta=''; repRender(); return; }
+  if(kind==='anioActual'){ repSetYear(parseInt(todayISO().slice(0,4),10)); return; }
+  if(kind==='anioPasado'){ repSetYear(parseInt(todayISO().slice(0,4),10)-1); return; }
+  if(kind==='todo'){ repF.mes=''; repF.anio=''; repF.desde=''; repF.hasta=''; repRender(); return; }
 }
 function repMonthBarHTML(){
   const BTN="font-size:11px;font-weight:700;padding:4px 9px;border-radius:7px;border:1.5px solid var(--line);background:#fff;color:var(--navy);cursor:pointer";
@@ -7286,7 +7290,14 @@ function repMonthBarHTML(){
     <button type="button" onclick="repMonthStep(1)" title="Mes siguiente" style="${STEP}">›</button>
     <button type="button" onclick="repPreset('mesActual')" style="${BTN}">Este mes</button>
     <button type="button" onclick="repPreset('mesPasado')" style="${BTN}">Mes pasado</button>
-    <button type="button" onclick="repPreset('anio')" style="${BTN}">Este año</button>
+    <span style="width:1px;height:18px;background:var(--line);margin:0 2px"></span>
+    <span style="font-size:9.5px;font-weight:800;color:var(--muted);text-transform:uppercase">Año</span>
+    <button type="button" onclick="repYearStep(-1)" title="Año anterior" style="${STEP}">‹</button>
+    <b id="repYearLbl" style="font-size:12.5px;color:var(--navy);min-width:38px;text-align:center">${repYearCurrent()}</b>
+    <button type="button" onclick="repYearStep(1)" title="Año siguiente" style="${STEP}">›</button>
+    <button type="button" onclick="repPreset('anioActual')" style="${BTN}">Este año</button>
+    <button type="button" onclick="repPreset('anioPasado')" style="${BTN}">Año pasado</button>
+    <span style="width:1px;height:18px;background:var(--line);margin:0 2px"></span>
     <button type="button" onclick="repPreset('todo')" style="${BTN}">Todo</button>
   </div>`;
 }
@@ -7389,14 +7400,14 @@ function repDataGarantia(){
   };
 }
 function repDataVendedor(){
-  const est=repF.estVend||'vendidas';
-  const estLabel={vendidas:'Vendidas (Aprobada/Finalizado)',todas:'Todas',Aprobada:'Aprobada',Finalizado:'Finalizado'}[est]||est;
+  const sel=(repF.estVendArr&&repF.estVendArr.length)?repF.estVendArr:[];
+  const estLabel=sel.length?sel.join(' + '):'(ninguno)';
+  const q=(repF.vendSearch||'').toLowerCase().trim();
   const groups={};
   (cotizaciones||[]).forEach(c=>{
-    let ok; if(est==='vendidas') ok=(c.estado==='Aprobada'||c.estado==='Finalizado');
-    else if(est==='todas') ok=true; else ok=(c.estado===est);
-    if(!ok) return;
+    if(!sel.includes(c.estado)) return;
     if(repF.vendedor && (c.vendedor||'')!==repF.vendedor) return;
+    if(q && !repMantHaystack(c).includes(q)) return;
     if(!repInRange(c.fecha,repF.desde,repF.hasta)) return;
     const v=(c.vendedor||'(sin vendedor)');
     (groups[v]||(groups[v]=[])).push(c);
@@ -7429,9 +7440,9 @@ function repDataVendedor(){
   });
   const totN=vendList.reduce((a,g)=>a+g.n,0), totM=vendList.reduce((a,g)=>a+g.monto,0);
   return {
-    titulo:'Ventas por vendedor',
+    titulo:'Ventas',
     periodoTxt:repRangoTxt(repF.desde,repF.hasta,'creación'),
-    filtrosTxt:repFiltrosTxt([['Estado',estLabel],['Vendedor',repF.vendedor||'Todos']]),
+    filtrosTxt:repFiltrosTxt([['Estado',estLabel],['Vendedor',repF.vendedor||'Todos'],['Buscar',repF.vendSearch||'—']]),
     columns:[{label:'Vendedor'},{label:'Proyecto'},{label:'Creada'},{label:'No.',a:'center'},{label:'Acordado',a:'right'}],
     rows,
     foot:[{t:'TOTAL',b:true},{t:`${totN} proyecto(s)`},{t:''},{t:'',a:'center'},{t:moneyGTQ(totM),a:'right'}],
@@ -7686,7 +7697,7 @@ function repRenderTypeBar(){
   }).join("");
 }
 function repSetType(id){ repType=id; repRender(); }
-function repClear(){ const ym=todayISO().slice(0,7); const b=repMonthBounds(ym); repF={desde:b.desde,hasta:b.hasta,mes:ym,vendedor:'',cliente:'',estVencer:'pendientes',estVend:'vendidas',garEstado:'todas',garMeses:'',mantEstado:'ambos',mantSearch:''}; repRender(); }
+function repClear(){ const ym=todayISO().slice(0,7); const b=repMonthBounds(ym); repF={desde:b.desde,hasta:b.hasta,mes:ym,anio:'',vendedor:'',cliente:'',estVencer:'pendientes',estVendArr:['Aprobada','Finalizado'],vendSearch:'',garEstado:'todas',garMeses:'',mantEstado:'ambos',mantSearch:''}; repRender(); }
 function repFld(label,inner){ return `<div style="display:flex;flex-direction:column;gap:3px">${label?`<label style="font-size:9.5px;font-weight:800;color:var(--muted);letter-spacing:.3px;text-transform:uppercase">${label}</label>`:''}${inner}</div>`; }
 function repVendSelect(){
   const vs=repVendedores();
@@ -7708,20 +7719,22 @@ function repRenderFilters(){
       +repFld('Entrega desde',`<input id="repDesde" type="date" value="${repF.desde||''}" onchange="repApply()" style="${REP_INP}">`)
       +repFld('Hasta',`<input id="repHasta" type="date" value="${repF.hasta||''}" onchange="repApply()" style="${REP_INP}">`);
   } else if(repType==='vendedor'){
-    f=repFld('Estado',`<select id="repEstado" onchange="repApply()" style="${REP_INP}">${repOptHTML('vendidas','Vendidas (Aprobada/Finalizado)',repF.estVend)}${repOptHTML('Aprobada','Aprobada',repF.estVend)}${repOptHTML('Finalizado','Finalizado',repF.estVend)}${repOptHTML('todas','Todas',repF.estVend)}</select>`)
+    const estChk=(s,lbl)=>`<label style="display:flex;align-items:center;gap:4px;font-size:11.5px;font-weight:700;color:var(--navy);cursor:pointer;user-select:none"><input type="checkbox" id="repEst${s}" ${(repF.estVendArr||[]).includes(s)?'checked':''} onchange="repApply()" style="width:13px;height:13px;accent-color:var(--brand);cursor:pointer">${lbl}</label>`;
+    f=repFld('Estado',`<div style="display:flex;gap:11px;align-items:center;flex-wrap:wrap;padding:5px 0">${estChk('Aprobada','Aprobadas')}${estChk('Finalizado','Finalizadas')}${estChk('Archivada','Archivadas')}</div>`)
       +repFld('Vendedor',repVendSelect())
+      +repFld('Buscar (cliente, proyecto, NIT…)',`<input id="repVendSearch" type="text" placeholder="Cualquier dato del proyecto" value="${esc(repF.vendSearch||'')}" oninput="repApply()" style="${REP_INP};min-width:240px">`)
       +repFld('Creada desde',`<input id="repDesde" type="date" value="${repF.desde||''}" onchange="repApply()" style="${REP_INP}">`)
       +repFld('Hasta',`<input id="repHasta" type="date" value="${repF.hasta||''}" onchange="repApply()" style="${REP_INP}">`);
   } else if(repType==='mant'){
     f=repFld('Estado',`<select id="repMantEstado" onchange="repApply()" style="${REP_INP}">${repOptHTML('ambos','Finalizados y Archivados',repF.mantEstado)}${repOptHTML('Finalizado','Finalizados',repF.mantEstado)}${repOptHTML('Archivada','Archivados',repF.mantEstado)}</select>`)
-      +repFld('Buscar proyecto',`<input id="repMantSearch" type="text" placeholder="Cliente, alias, No., NIS, NIT..." value="${esc(repF.mantSearch||'')}" oninput="repApply()" style="${REP_INP};min-width:230px">`)
-      +repFld('Orden',`<button type="button" onclick="repMantReorder()" title="Reordenar por mantenimiento más próximo o vencido" style="font-size:11px;font-weight:800;padding:6px 12px;border-radius:8px;border:1.5px solid var(--navy);background:var(--navy);color:#fff;cursor:pointer">↕ Reordenar</button>`);
+      +repFld('Buscar proyecto',`<input id="repMantSearch" type="text" placeholder="Cliente, alias, No., NIS, NIT..." value="${esc(repF.mantSearch||'')}" oninput="repApply()" style="${REP_INP};min-width:230px">`);
   } else {
     f=repFld('Vendedor',repVendSelect())
       +repFld('Cliente',`<input id="repCliente" type="text" placeholder="Buscar cliente..." value="${esc(repF.cliente||'')}" oninput="repApply()" style="${REP_INP};min-width:190px">`);
   }
   const showMonth=(repType==='vencer'||repType==='garantia'||repType==='vendedor');
-  box.innerHTML=`${showMonth?repMonthBarHTML():''}<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">${f}<button type="button" class="btn ghost sm" style="font-size:11px" onclick="repClear()">✕ Limpiar</button></div>`;
+  const reorderBtn=repType==='mant'?`<button type="button" onclick="repMantReorder()" title="Reordenar por mantenimiento más próximo o vencido" style="font-size:11px;font-weight:800;padding:6px 12px;border-radius:8px;border:1.5px solid var(--navy);background:var(--navy);color:#fff;cursor:pointer">↕ Reordenar</button>`:'';
+  box.innerHTML=`${showMonth?repMonthBarHTML():''}<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">${f}<button type="button" class="btn ghost sm" style="font-size:11px" onclick="repClear()">✕ Limpiar</button>${reorderBtn}</div>`;
 }
 function repApply(){
   const g=id=>{const e=$(id);return e?e.value:undefined;}; let v;
@@ -7732,10 +7745,17 @@ function repApply(){
   if((v=g('repGarMeses'))!==undefined) repF.garMeses=v;
   if((v=g('repGarEstado'))!==undefined) repF.garEstado=v;
   if(repType==='vencer' && (v=g('repEstado'))!==undefined) repF.estVencer=v;
-  if(repType==='vendedor' && (v=g('repEstado'))!==undefined) repF.estVend=v;
+  if(repType==='vendedor'){
+    if($('repEstAprobada')||$('repEstFinalizado')||$('repEstArchivada')){
+      const arr=[]; ['Aprobada','Finalizado','Archivada'].forEach(s=>{ const el=$('repEst'+s); if(el&&el.checked) arr.push(s); });
+      repF.estVendArr=arr;
+    }
+    if((v=g('repVendSearch'))!==undefined) repF.vendSearch=v;
+  }
   if(repType==='mant'){ if((v=g('repMantEstado'))!==undefined) repF.mantEstado=v; if((v=g('repMantSearch'))!==undefined) repF.mantSearch=v; }
-  // Si el rango manual deja de coincidir con el mes elegido, marcar como personalizado
+  // Si el rango manual deja de coincidir con el mes/año elegido, marcar como personalizado
   if(repF.mes){ const b=repMonthBounds(repF.mes); if(repF.desde!==b.desde||repF.hasta!==b.hasta){ repF.mes=''; const me=$('repMes'); if(me) me.value=''; } }
+  if(repF.anio){ const y=repF.anio; if(repF.desde!==`${y}-01-01`||repF.hasta!==`${y}-12-31`){ repF.anio=''; const yl=$('repYearLbl'); if(yl) yl.textContent=repYearCurrent(); } }
   repRenderResult();
 }
 function repCellHTML(cell,colAlign,isFoot){
