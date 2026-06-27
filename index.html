@@ -5695,28 +5695,22 @@ function vopen(cotId){window._currentCotId=cotId;
         <select class="vest" style="border-color:${ec};color:${ec}" onchange="vChangeEstado('${cotId}',this.value)">${eOpts}</select>
       </div>
       <div class="m-2col" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
-        <div style="display:flex;flex-direction:column;gap:2px;padding:5px 9px;background:var(--soft);border-radius:7px;min-width:0">
-          <div style="display:flex;align-items:center;gap:5px">
-            <span style="font-size:8.5px;font-weight:800;color:var(--muted);letter-spacing:.4px">COTIZADO</span>
-            <input type="checkbox" ${cot.precioAcordado!=null?'checked':''} onchange="vSetAcordadoCheck('${cotId}',this.checked)" title="Activar precio especial / descuento acordado" style="width:13px;height:13px;accent-color:var(--brand);cursor:pointer">
-          </div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;padding:5px 9px;background:var(--soft);border-radius:7px;min-width:0">
+          <span style="font-size:8.5px;font-weight:800;color:var(--muted);letter-spacing:.4px">COTIZADO</span>
+          <input type="checkbox" ${cot.precioAcordado!=null?'checked':''} onchange="vSetAcordadoCheck('${cotId}',this.checked)" title="Activar precio especial / descuento acordado" style="width:13px;height:13px;accent-color:var(--brand);cursor:pointer">
           ${cot.precioAcordado!=null
-            ? (()=>{const ac=parseFloat(cot.precioAcordado)||0;return `<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;line-height:1.1">
-                <span style="font-size:11px;color:#6b7890;font-weight:600;text-decoration:line-through;text-decoration-color:rgba(107,120,144,.65);text-decoration-thickness:1px;white-space:nowrap">${moneyGTQ(total)}</span>
-                <span style="font-size:12.5px;font-weight:800;color:var(--green);white-space:nowrap">${moneyGTQ(ac)}</span>
-                <span onclick="vEditAcordado('${cotId}')" style="cursor:pointer;font-size:10px;color:var(--blue)" title="Editar precio acordado">✎</span>
-              </div>`;})()
-            : `<div style="font-size:12.5px;font-weight:800;color:var(--navy);white-space:nowrap">${moneyGTQ(total)}</div>`}
+            ? (()=>{const ac=parseFloat(cot.precioAcordado)||0;return `<span style="font-size:11px;color:#6b7890;font-weight:600;text-decoration:line-through;text-decoration-color:rgba(107,120,144,.65);text-decoration-thickness:1px;white-space:nowrap">${moneyGTQ(total)}</span><span style="font-size:12.5px;font-weight:800;color:var(--green);white-space:nowrap">${moneyGTQ(ac)}</span><span onclick="vEditAcordado('${cotId}')" style="cursor:pointer;font-size:10px;color:var(--blue)" title="Editar precio acordado">✎</span>`;})()
+            : `<span style="font-size:12.5px;font-weight:800;color:var(--navy);white-space:nowrap">${moneyGTQ(total)}</span>`}
         </div>
-        <div style="display:flex;flex-direction:column;gap:2px;padding:5px 9px;background:rgba(21,127,76,.08);border-radius:7px;min-width:0">
+        <div style="display:flex;align-items:center;justify-content:center;gap:6px;padding:5px 9px;background:rgba(21,127,76,.08);border-radius:7px;min-width:0">
           <span style="font-size:8.5px;font-weight:800;color:var(--muted);letter-spacing:.4px">COBRADO</span>
           <span style="font-size:12.5px;font-weight:800;color:var(--green);white-space:nowrap">${moneyGTQ(cobrado)}</span>
         </div>
-        <div style="display:flex;flex-direction:column;gap:2px;padding:5px 9px;background:rgba(192,57,43,.07);border-radius:7px;min-width:0">
+        <div style="display:flex;align-items:center;justify-content:center;gap:6px;padding:5px 9px;background:rgba(192,57,43,.07);border-radius:7px;min-width:0">
           <span style="font-size:8.5px;font-weight:800;color:var(--muted);letter-spacing:.4px">GASTADO</span>
           <span style="font-size:12.5px;font-weight:800;color:#e74c3c;white-space:nowrap">${moneyGTQ(gastado)}</span>
         </div>
-        <div style="display:flex;flex-direction:column;gap:2px;padding:5px 9px;background:${saldo>=0?"rgba(21,127,76,.08)":"rgba(192,57,43,.07)"};border-radius:7px;border:1.5px solid ${saldo>=0?"rgba(21,127,76,.25)":"rgba(192,57,43,.25)"};min-width:0">
+        <div style="display:flex;align-items:center;justify-content:center;gap:6px;padding:5px 9px;background:${saldo>=0?"rgba(21,127,76,.08)":"rgba(192,57,43,.07)"};border-radius:7px;border:1.5px solid ${saldo>=0?"rgba(21,127,76,.25)":"rgba(192,57,43,.25)"};min-width:0">
           <span style="font-size:8.5px;font-weight:800;color:var(--muted);letter-spacing:.4px">SALDO</span>
           <span style="font-size:12.5px;font-weight:800;color:${saldo>=0?"var(--green)":"#e74c3c"};white-space:nowrap">${moneyGTQ(saldo)}</span>
         </div>
@@ -5731,7 +5725,6 @@ function vopen(cotId){window._currentCotId=cotId;
           if(g.estado==='sin'||g.estado==='sinmeses')return `<span style="font-size:10.5px;color:var(--muted);font-style:italic">${esc(g.label)}</span>`;
           return `<span style="font-size:10.5px;font-weight:800;color:${g.color}">${esc(g.label)} · vence ${fmtDate(g.vence)}${g.dias>=0?` · faltan ${g.dias} días`:` · venció hace ${-g.dias} días`}</span>`;})()}
       </div>
-      ${cot.precioAcordado!=null?(()=>{const cotz=cotGrandTotal(cot);const ac=parseFloat(cot.precioAcordado)||0;const diff=Math.round((cotz-ac)*100)/100;const pct=cotz>0?(diff/cotz*100):0;return `<div style="font-size:10px;color:var(--muted);margin-top:5px"><b style="color:var(--green)">Precio especial activo</b> · ${diff>=0?'descuento':'aumento'} de ${moneyGTQ(Math.abs(diff))} (${Math.abs(pct).toFixed(1)}%) sobre el cotizado · solo afecta el reporte de cuentas por cobrar.</div>`;})():''}
     </div>
 
     <div id="vAddFormHost"></div>
