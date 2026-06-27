@@ -5562,8 +5562,8 @@ function garantiaInfo(cot,mesesFallback){
   const entrega=cot.fechaEntrega||"";
   let meses=(cot.garantiaMeses!=null&&cot.garantiaMeses!=="")?parseInt(cot.garantiaMeses,10):null;
   if((meses==null||isNaN(meses))&&mesesFallback!=null&&mesesFallback!==""){ meses=parseInt(mesesFallback,10); }
+  if(meses==null||isNaN(meses)) meses=12; // garantía por defecto: 12 meses
   if(!entrega) return {entrega:"",meses,vence:"",dias:null,estado:"sin",label:"Sin fecha de entrega",color:"#7a8699"};
-  if(meses==null||isNaN(meses)) return {entrega,meses:null,vence:"",dias:null,estado:"sinmeses",label:"Falta definir garantía (meses)",color:"#7a8699"};
   const vence=addMonthsISO(entrega,meses);
   const dias=daysUntilISO(vence);
   let estado,label,color;
@@ -5574,6 +5574,15 @@ function garantiaInfo(cot,mesesFallback){
 }
 function vSetEntrega(cotId,val){ const c=cotizaciones.find(x=>x.id===cotId); if(!c)return; c.fechaEntrega=val||""; c.updated=Date.now(); qsave(); vopen(cotId); }
 function vSetGarantia(cotId,val){ const c=cotizaciones.find(x=>x.id===cotId); if(!c)return; c.garantiaMeses=(val===""?null:(parseInt(val,10)||0)); c.updated=Date.now(); qsave(); vopen(cotId); }
+/* Precio final acordado: SOLO afecta el reporte de Cuentas por cobrar. No toca ingresos/egresos/saldo del proyecto. */
+function precioAcordado(cot){ return (cot.precioAcordado!=null && cot.precioAcordado!=="") ? (parseFloat(cot.precioAcordado)||0) : cotGrandTotal(cot); }
+function vSetAcordadoCheck(cotId,checked){
+  const c=cotizaciones.find(x=>x.id===cotId); if(!c)return;
+  if(checked){ c.precioAcordado=null; }
+  else { c.precioAcordado=Math.round(cotGrandTotal(c)*0.97*100)/100; } // prellenar con cotizado − 3%
+  c.updated=Date.now(); qsave(); vopen(cotId);
+}
+function vSetAcordado(cotId,val){ const c=cotizaciones.find(x=>x.id===cotId); if(!c)return; c.precioAcordado=(val===""?0:(parseFloat(val)||0)); c.updated=Date.now(); qsave(); vopen(cotId); }
 
 function vChangeEstado(cotId,newEstado){
   const cot=cotizaciones.find(x=>x.id===cotId);
@@ -5699,11 +5708,22 @@ function vopen(cotId){window._currentCotId=cotId;
         <span style="font-size:9px;font-weight:800;color:var(--muted);letter-spacing:.4px">📦 ENTREGA</span>
         <input type="date" value="${cot.fechaEntrega||''}" onchange="vSetEntrega('${cotId}',this.value)" title="Fecha en que se entregó el proyecto al cliente" style="font-size:11px;padding:3px 6px;border:1.5px solid var(--line);border-radius:6px">
         <span style="font-size:9px;font-weight:800;color:var(--muted);letter-spacing:.4px">🛡 GARANTÍA</span>
-        <input type="number" min="0" step="1" placeholder="meses" value="${cot.garantiaMeses!=null?cot.garantiaMeses:''}" onchange="vSetGarantia('${cotId}',this.value)" title="Meses de garantía para este proyecto/equipo" style="font-size:11px;padding:3px 6px;width:74px;border:1.5px solid var(--line);border-radius:6px">
+        <input type="number" min="0" step="1" placeholder="meses" value="${cot.garantiaMeses!=null?cot.garantiaMeses:12}" onchange="vSetGarantia('${cotId}',this.value)" title="Meses de garantía para este proyecto/equipo (por defecto 12)" style="font-size:11px;padding:3px 6px;width:74px;border:1.5px solid var(--line);border-radius:6px">
         <span style="font-size:10px;color:var(--muted)">meses</span>
         ${(()=>{const g=garantiaInfo(cot);
           if(g.estado==='sin'||g.estado==='sinmeses')return `<span style="font-size:10.5px;color:var(--muted);font-style:italic">${esc(g.label)}</span>`;
           return `<span style="font-size:10.5px;font-weight:800;color:${g.color}">${esc(g.label)} · vence ${fmtDate(g.vence)}${g.dias>=0?` · faltan ${g.dias} días`:` · venció hace ${-g.dias} días`}</span>`;})()}
+      </div>
+      <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:6px;padding-top:6px;border-top:1px solid var(--line)">
+        <span style="font-size:9px;font-weight:800;color:var(--muted);letter-spacing:.4px">💵 PRECIO ACORDADO</span>
+        <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--navy);cursor:pointer;user-select:none">
+          <input type="checkbox" ${cot.precioAcordado==null?'checked':''} onchange="vSetAcordadoCheck('${cotId}',this.checked)" style="width:14px;height:14px;accent-color:var(--brand);cursor:pointer">
+          Mismo que el cotizado
+        </label>
+        ${cot.precioAcordado!=null?`
+          <input type="number" min="0" step="any" class="no-spin" value="${cot.precioAcordado}" onchange="vSetAcordado('${cotId}',this.value)" title="Precio final acordado con el cliente (solo para el reporte de cuentas por cobrar)" style="font-size:11px;padding:3px 6px;width:120px;border:1.5px solid var(--line);border-radius:6px">
+          ${(()=>{const cotz=cotGrandTotal(cot);const ac=parseFloat(cot.precioAcordado)||0;const diff=Math.round((cotz-ac)*100)/100;const pct=cotz>0?(diff/cotz*100):0;return `<span style="font-size:10.5px;font-weight:800;color:var(--green)">Acordado ${moneyGTQ(ac)}</span><span style="font-size:10px;color:var(--muted)">${cotz>0?` · ${diff>=0?'−':'+'}${moneyGTQ(Math.abs(diff))} (${diff>=0?'−':'+'}${Math.abs(pct).toFixed(1)}%) vs cotizado`:''}</span>`;})()}
+        `:`<span style="font-size:10px;color:var(--muted);font-style:italic">Para cobrar = total cotizado. Desmarca si hubo descuento o precio especial.</span>`}
       </div>
     </div>
 
@@ -7222,8 +7242,46 @@ const REP_TYPES=[
   {id:'pagar',   icon:'📤', label:'Cuentas por pagar'}
 ];
 let repType='vencer';
-let repF={desde:'',hasta:'',vendedor:'',cliente:'',estVencer:'pendientes',estVend:'vendidas',garEstado:'todas',garMeses:''};
+let repF={desde:'',hasta:'',mes:'',vendedor:'',cliente:'',estVencer:'pendientes',estVend:'vendidas',garEstado:'todas',garMeses:''};
+let repInited=false;
 const REP_INP="font-size:12px;padding:5px 8px;border:1.5px solid var(--line);border-radius:7px;outline:none";
+
+/* ---- Periodo rápido (selector de mes con flechas) ---- */
+function repMonthBounds(ym){
+  if(!ym) return {desde:'',hasta:''};
+  const [y,m]=ym.split('-').map(n=>parseInt(n,10));
+  if(!y||!m) return {desde:'',hasta:''};
+  const last=new Date(y,m,0).getDate();
+  return {desde:`${ym}-01`, hasta:`${ym}-${String(last).padStart(2,'0')}`};
+}
+function repSetMonth(ym){ repF.mes=ym||''; const b=repMonthBounds(ym); repF.desde=b.desde; repF.hasta=b.hasta; repRender(); }
+function repMonthStep(delta){
+  let ym=repF.mes||todayISO().slice(0,7);
+  let [y,m]=ym.split('-').map(n=>parseInt(n,10));
+  m+=delta; while(m<1){m+=12;y--;} while(m>12){m-=12;y++;}
+  repSetMonth(`${y}-${String(m).padStart(2,'0')}`);
+}
+function repPreset(kind){
+  const ym=todayISO().slice(0,7);
+  if(kind==='mesActual'){ repSetMonth(ym); return; }
+  if(kind==='mesPasado'){ let [y,m]=ym.split('-').map(n=>parseInt(n,10)); m--; if(m<1){m=12;y--;} repSetMonth(`${y}-${String(m).padStart(2,'0')}`); return; }
+  if(kind==='anio'){ const y=todayISO().slice(0,4); repF.mes=''; repF.desde=`${y}-01-01`; repF.hasta=`${y}-12-31`; repRender(); return; }
+  if(kind==='todo'){ repF.mes=''; repF.desde=''; repF.hasta=''; repRender(); return; }
+}
+function repMonthBarHTML(){
+  const BTN="font-size:11px;font-weight:700;padding:4px 9px;border-radius:7px;border:1.5px solid var(--line);background:#fff;color:var(--navy);cursor:pointer";
+  const STEP="font-size:15px;font-weight:800;padding:2px 9px;border-radius:7px;border:1.5px solid var(--line);background:#fff;color:var(--navy);cursor:pointer;line-height:1";
+  return `<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:11px;padding-bottom:11px;border-bottom:1px dashed var(--line)">
+    <span style="font-size:9.5px;font-weight:800;color:var(--muted);letter-spacing:.3px;text-transform:uppercase">Periodo rápido</span>
+    <button type="button" onclick="repMonthStep(-1)" title="Mes anterior" style="${STEP}">‹</button>
+    <input type="month" id="repMes" value="${repF.mes||''}" onchange="repSetMonth(this.value)" style="${REP_INP}">
+    <button type="button" onclick="repMonthStep(1)" title="Mes siguiente" style="${STEP}">›</button>
+    <button type="button" onclick="repPreset('mesActual')" style="${BTN}">Este mes</button>
+    <button type="button" onclick="repPreset('mesPasado')" style="${BTN}">Mes pasado</button>
+    <button type="button" onclick="repPreset('anio')" style="${BTN}">Este año</button>
+    <button type="button" onclick="repPreset('todo')" style="${BTN}">Todo</button>
+  </div>`;
+}
 
 function repVendedores(){
   const set={}; (typeof cotizaciones!=="undefined"?cotizaciones:[]).forEach(c=>{const v=(c.vendedor||'').trim();if(v)set[v]=1;});
@@ -7357,7 +7415,7 @@ function repDataCobrar(){
     if(!(c.estado==='Aprobada'||c.estado==='Finalizado')) return;
     if(repF.vendedor && (c.vendedor||'')!==repF.vendedor) return;
     if(repF.cliente && !((c.clienteNombre||'').toLowerCase().includes(repF.cliente.toLowerCase()))) return;
-    const cot=cotGrandTotal(c);
+    const cot=precioAcordado(c); // precio final acordado (= cotizado si no hay precio especial)
     const v=(typeof ventas!=="undefined"?ventas:[]).find(x=>x.cotId===c.id);
     const cobrado=(v&&v.movimientos?v.movimientos:[]).reduce((a,m)=>a+(m.estado==='completado'?(parseFloat(m.entrada)||0):0),0);
     const porCobrar=Math.round((cot-cobrado)*100)/100;
@@ -7374,11 +7432,11 @@ function repDataCobrar(){
     titulo:'Cuentas por cobrar',
     periodoTxt:'Proyectos aprobados y finalizados con saldo pendiente de cobro',
     filtrosTxt:repFiltrosTxt([['Vendedor',repF.vendedor||'Todos'],['Cliente',repF.cliente||'Todos']]),
-    columns:[{label:'Cliente'},{label:'Proyecto'},{label:'Vendedor'},{label:'Cotizado',a:'right'},{label:'Cobrado',a:'right'},{label:'Por cobrar',a:'right'}],
+    columns:[{label:'Cliente'},{label:'Proyecto'},{label:'Vendedor'},{label:'Acordado',a:'right'},{label:'Cobrado',a:'right'},{label:'Por cobrar',a:'right'}],
     rows,
     foot:[{t:`Total · ${items.length}`,b:true},{t:''},{t:''},{t:moneyGTQ(tCot),a:'right'},{t:moneyGTQ(tCob),a:'right',c:'#157f4c'},{t:moneyGTQ(tPC),a:'right',c:'#c0392b'}],
     cards:[{k:'Proyectos',v:String(items.length)},{k:'Total cobrado',v:moneyGTQ(tCob),c:'#157f4c'},{k:'Total por cobrar',v:moneyGTQ(tPC),c:'#c0392b'}],
-    nota:'Por cobrar = total cotizado − cobrado (entradas en estado Listo). Solo proyectos aprobados o finalizados con saldo pendiente.'
+    nota:'Por cobrar = precio acordado − cobrado (entradas en estado Listo). El precio acordado es el total cotizado salvo que en el proyecto se haya fijado un precio final distinto (descuento o precio especial). Solo proyectos aprobados o finalizados con saldo pendiente.'
   };
 }
 function repDataPagar(){
@@ -7410,7 +7468,10 @@ function repDataPagar(){
 }
 
 /* ---- UI Reportes ---- */
-function repRender(){ repRenderTypeBar(); repRenderFilters(); repRenderResult(); }
+function repRender(){
+  if(!repInited){ repInited=true; const ym=todayISO().slice(0,7); repF.mes=ym; const b=repMonthBounds(ym); repF.desde=b.desde; repF.hasta=b.hasta; }
+  repRenderTypeBar(); repRenderFilters(); repRenderResult();
+}
 function repRenderTypeBar(){
   const box=$("repTypeBar"); if(!box)return;
   box.innerHTML=REP_TYPES.map(t=>{
@@ -7419,7 +7480,7 @@ function repRenderTypeBar(){
   }).join("");
 }
 function repSetType(id){ repType=id; repRender(); }
-function repClear(){ repF={desde:'',hasta:'',vendedor:'',cliente:'',estVencer:'pendientes',estVend:'vendidas',garEstado:'todas',garMeses:''}; repRender(); }
+function repClear(){ const ym=todayISO().slice(0,7); const b=repMonthBounds(ym); repF={desde:b.desde,hasta:b.hasta,mes:ym,vendedor:'',cliente:'',estVencer:'pendientes',estVend:'vendidas',garEstado:'todas',garMeses:''}; repRender(); }
 function repFld(label,inner){ return `<div style="display:flex;flex-direction:column;gap:3px">${label?`<label style="font-size:9.5px;font-weight:800;color:var(--muted);letter-spacing:.3px;text-transform:uppercase">${label}</label>`:''}${inner}</div>`; }
 function repVendSelect(){
   const vs=repVendedores();
@@ -7435,7 +7496,7 @@ function repRenderFilters(){
       +repFld('Creada desde',`<input id="repDesde" type="date" value="${repF.desde||''}" onchange="repApply()" style="${REP_INP}">`)
       +repFld('Hasta',`<input id="repHasta" type="date" value="${repF.hasta||''}" onchange="repApply()" style="${REP_INP}">`);
   } else if(repType==='garantia'){
-    f=repFld('Estado garantía',`<select id="repGarEstado" onchange="repApply()" style="${REP_INP}">${repOptHTML('todas','Todas',repF.garEstado)}${repOptHTML('vigente','Vigentes',repF.garEstado)}${repOptHTML('porvencer','Por vencer',repF.garEstado)}${repOptHTML('vencida','Vencidas',repF.garEstado)}${repOptHTML('sinmeses','Sin garantía definida',repF.garEstado)}</select>`)
+    f=repFld('Estado garantía',`<select id="repGarEstado" onchange="repApply()" style="${REP_INP}">${repOptHTML('todas','Todas',repF.garEstado)}${repOptHTML('vigente','Vigentes',repF.garEstado)}${repOptHTML('porvencer','Por vencer',repF.garEstado)}${repOptHTML('vencida','Vencidas',repF.garEstado)}</select>`)
       +repFld('Vendedor',repVendSelect())
       +repFld('Garantía base (meses)',`<input id="repGarMeses" type="number" min="0" placeholder="opcional" value="${repF.garMeses||''}" onchange="repApply()" style="${REP_INP};width:130px">`)
       +repFld('Entrega desde',`<input id="repDesde" type="date" value="${repF.desde||''}" onchange="repApply()" style="${REP_INP}">`)
@@ -7449,7 +7510,8 @@ function repRenderFilters(){
     f=repFld('Vendedor',repVendSelect())
       +repFld('Cliente',`<input id="repCliente" type="text" placeholder="Buscar cliente..." value="${esc(repF.cliente||'')}" oninput="repApply()" style="${REP_INP};min-width:190px">`);
   }
-  box.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">${f}<button type="button" class="btn ghost sm" style="font-size:11px" onclick="repClear()">✕ Limpiar</button></div>`;
+  const showMonth=(repType==='vencer'||repType==='garantia'||repType==='vendedor');
+  box.innerHTML=`${showMonth?repMonthBarHTML():''}<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">${f}<button type="button" class="btn ghost sm" style="font-size:11px" onclick="repClear()">✕ Limpiar</button></div>`;
 }
 function repApply(){
   const g=id=>{const e=$(id);return e?e.value:undefined;}; let v;
@@ -7461,6 +7523,8 @@ function repApply(){
   if((v=g('repGarEstado'))!==undefined) repF.garEstado=v;
   if(repType==='vencer' && (v=g('repEstado'))!==undefined) repF.estVencer=v;
   if(repType==='vendedor' && (v=g('repEstado'))!==undefined) repF.estVend=v;
+  // Si el rango manual deja de coincidir con el mes elegido, marcar como personalizado
+  if(repF.mes){ const b=repMonthBounds(repF.mes); if(repF.desde!==b.desde||repF.hasta!==b.hasta){ repF.mes=''; const me=$('repMes'); if(me) me.value=''; } }
   repRenderResult();
 }
 function repCellHTML(cell,colAlign,isFoot){
