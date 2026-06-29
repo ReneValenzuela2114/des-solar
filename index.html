@@ -5850,8 +5850,9 @@ function vAddMov(cotId){
     if(!primerPago){toast("Escribe el monto del primer pago",true);if($("vMovPrimerPago"))$("vMovPrimerPago").focus();return;}
     if(primerPago>total){toast("El primer pago no puede superar el total acordado",true);if($("vMovPrimerPago"))$("vMovPrimerPago").focus();return;}
     const cuentaId=uid();
+    const estadoPrimerPago=($("vMovEstado")&&$("vMovEstado").value)||"completado";
     v.cuentas.push({id:cuentaId,tipo,descripcion:desc,totalAcordado:total,creado:fecha});
-    v.movimientos.push({id:uid(),fecha,descripcion:desc+" · cuota 1",entrada:tipo==="entrada"?primerPago:0,salida:tipo==="salida"?primerPago:0,cuentaId,provId:null,estado:"pendiente",comprobanteId:null});
+    v.movimientos.push({id:uid(),fecha,descripcion:desc+" · cuota 1",entrada:tipo==="entrada"?primerPago:0,salida:tipo==="salida"?primerPago:0,cuentaId,provId:null,estado:estadoPrimerPago,comprobanteId:null});
     vsave();toast(tipo==="entrada"?"Cobro en cuotas creado ✓":"Gasto en cuotas creado ✓");
   } else {
     const monto=parseFloat($("vMovMonto").value)||0;
