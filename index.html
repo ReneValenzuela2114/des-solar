@@ -10964,5 +10964,43 @@ function archCatDelete(name){
   toast("Categoría eliminada");
 }
 </script>
+
+/* ---- Apagar el autocompletado del navegador en todos los campos, menos los que ya
+   definen autocomplete (p.ej. el login usuario/contraseña). Cubre también los campos
+   que se crean dinámicamente. Evita que el menú de "datos guardados" tape el campo. ---- */
+<script>
+(function(){
+  function noFill(el){
+    try{
+      if(!el || el.__afDone) return;
+      if(el.hasAttribute && el.hasAttribute('autocomplete')){ el.__afDone=true; return; }
+      var t=((el.getAttribute&&el.getAttribute('type'))||'').toLowerCase();
+      if(el.tagName==='INPUT' && ['checkbox','radio','file','range','color','hidden','submit','button','image','reset'].indexOf(t)>=0){ el.__afDone=true; return; }
+      el.setAttribute('autocomplete','off');
+      el.__afDone=true;
+    }catch(e){}
+  }
+  function scan(root){
+    try{ var ns=(root&&root.querySelectorAll)?root.querySelectorAll('input,select,textarea'):[]; for(var i=0;i<ns.length;i++) noFill(ns[i]); }catch(e){}
+  }
+  function start(){
+    scan(document);
+    try{
+      var mo=new MutationObserver(function(muts){
+        for(var i=0;i<muts.length;i++){ var ad=muts[i].addedNodes; if(!ad) continue;
+          for(var j=0;j<ad.length;j++){ var n=ad[j]; if(!n||n.nodeType!==1) continue;
+            if(n.tagName==='INPUT'||n.tagName==='SELECT'||n.tagName==='TEXTAREA') noFill(n);
+            scan(n);
+          }
+        }
+      });
+      mo.observe(document.documentElement||document.body,{childList:true,subtree:true});
+    }catch(e){}
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start,{once:true});
+  else start();
+})();
+</script>
+
 </body>
 </html>
