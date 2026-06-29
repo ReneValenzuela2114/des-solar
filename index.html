@@ -5780,7 +5780,7 @@ function vShowAddMov(cotId){
   const cb=$("vMovEsCuotas");if(cb)cb.checked=false;
   const ci=$("vMovComprobanteInfo");if(ci)ci.style.display="none";
   vFormComp=null; vRenderCompRow();
-  if($("vMovEstado"))$("vMovEstado").value="pendiente";
+  if($("vMovEstado"))$("vMovEstado").value="completado";
   const simpleRow=$("vMovSimpleRow");if(simpleRow)simpleRow.style.display="flex";
   const cuotasRow=$("vMovCuotasRow");if(cuotasRow)cuotasRow.style.display="none";
   // Reset cuota mode → back to new movement mode
@@ -6145,6 +6145,12 @@ function vMovRender(cotId){
         <div class="vmov-cuotarow" style="display:flex;gap:7px;align-items:flex-end;flex-wrap:wrap">
           <div class="field" style="margin:0"><label style="font-size:10px;font-weight:700">Fecha</label><input id="vAddFormCuotaFecha" type="date" style="font-size:12px;padding:4px 7px;width:130px"></div>
           <div class="field" style="margin:0"><label style="font-size:10px;font-weight:700">Monto (Q)</label><input id="vAddFormCuotaMonto" type="number" min="0" step="any" placeholder="0.00" style="font-size:12px;padding:4px 7px;width:120px"></div>
+          <div class="field" style="margin:0"><label style="font-size:10px;font-weight:700">Estado</label>
+            <select id="vAddFormCuotaEstado" style="font-size:12px;padding:4px 7px;border-radius:7px;border:1.5px solid var(--line)">
+              <option value="completado" selected>🟢 Completado</option>
+              <option value="pendiente">🟡 Pendiente</option>
+            </select>
+          </div>
           <div style="display:flex;gap:5px;padding-bottom:1px">
             <button type="button" class="btn primary sm" style="font-size:11px;padding:4px 10px" onclick="vAddFormCuotaSave('${cotId}')">Registrar pago</button>
             <button type="button" class="btn ghost sm" style="font-size:11px;padding:4px 9px" onclick="vAddFormCancelCuenta()">← Nuevo</button>
@@ -6173,8 +6179,8 @@ function vMovRender(cotId){
           </label>
           <div class="field" style="margin:0;width:150px"><label style="font-size:10px;font-weight:700">Estado</label>
             <select id="vMovEstado" style="font-size:12px;padding:4px 7px;border-radius:7px;border:1.5px solid var(--line);width:100%">
-              <option value="pendiente" selected>🟡 Pendiente</option>
-              <option value="completado">🟢 Completado</option>
+              <option value="completado" selected>🟢 Completado</option>
+              <option value="pendiente">🟡 Pendiente</option>
             </select>
           </div>
         </div>
@@ -6235,6 +6241,7 @@ function vAddFormSelectCuenta(cotId,cuentaId){
   const ci=$("vAddFormCuotaId");if(ci)ci.value=cuentaId;
   const cf=$("vAddFormCuotaFecha");if(cf)cf.value=todayISO();
   const cm=$("vAddFormCuotaMonto");if(cm){cm.value="";setTimeout(()=>cm.focus(),50);}
+  const ce=$("vAddFormCuotaEstado");if(ce)ce.value="completado";
   const t=$("vAddFormTitle");if(t)t.textContent="Registrar pago";
   vCuotaComp=null; vCuotaRenderCompRow();
   $("vAddFormCuotaMode").style.display="";
@@ -6253,7 +6260,8 @@ function vAddFormCuotaSave(cotId){
   const v=vget(cotId);
   const c=v.cuentas.find(x=>x.id===cuentaId);if(!c)return;
   const cuotaNum=v.movimientos.filter(m=>m.cuentaId===cuentaId).length+1;
-  v.movimientos.push({id:uid(),fecha,descripcion:c.descripcion+" · cuota "+cuotaNum,entrada:c.tipo==="entrada"?monto:0,salida:c.tipo==="salida"?monto:0,cuentaId,provId:null,comprobante:vCuotaComp||null});
+  const estadoCuota=($("vAddFormCuotaEstado")&&$("vAddFormCuotaEstado").value)||"completado";
+  v.movimientos.push({id:uid(),fecha,descripcion:c.descripcion+" · cuota "+cuotaNum,entrada:c.tipo==="entrada"?monto:0,salida:c.tipo==="salida"?monto:0,cuentaId,provId:null,estado:estadoCuota,comprobante:vCuotaComp||null});
   vCuotaComp=null;
   vsave();toast("Cuota "+cuotaNum+" registrada ✓");vopen(cotId);
 }
