@@ -10965,32 +10965,18 @@ function archCatDelete(name){
 }
 </script>
 
-/* ---- Apagar autocompletado y el menú de contraseñas de Chrome en los campos del DES,
-   menos los del login (que definen su propio autocomplete). Chrome ignora autocomplete="off"
-   para su gestor de contraseñas, así que en los campos de texto se usa readonly-hasta-tocar. ---- */
+/* ---- Apagar el autocompletado del navegador en todos los campos, menos los que ya
+   definen autocomplete (p.ej. el login usuario/contraseña). Cubre también los campos
+   que se crean dinámicamente. Evita que el menú de "datos guardados" tape el campo. ---- */
 <script>
 (function(){
-  function isText(el){
-    var t=((el.getAttribute&&el.getAttribute('type'))||'').toLowerCase();
-    return el.tagName==='INPUT' && (t===''||t==='text'||t==='search'||t==='email'||t==='tel');
-  }
-  function unlock(e){ var el=e.currentTarget||e.target; if(el&&el.removeAttribute) el.removeAttribute('readonly'); }
   function noFill(el){
     try{
       if(!el || el.__afDone) return;
-      var ac=(el.getAttribute&&el.getAttribute('autocomplete'))||'';
-      if(ac && ac.toLowerCase()!=='off'){ el.__afDone=true; return; }
-      var tag=el.tagName, t=((el.getAttribute&&el.getAttribute('type'))||'').toLowerCase();
-      if(tag==='INPUT' && ['checkbox','radio','file','range','color','hidden','submit','button','image','reset'].indexOf(t)>=0){ el.__afDone=true; return; }
+      if(el.hasAttribute && el.hasAttribute('autocomplete')){ el.__afDone=true; return; }
+      var t=((el.getAttribute&&el.getAttribute('type'))||'').toLowerCase();
+      if(el.tagName==='INPUT' && ['checkbox','radio','file','range','color','hidden','submit','button','image','reset'].indexOf(t)>=0){ el.__afDone=true; return; }
       el.setAttribute('autocomplete','off');
-      if(isText(el) && !el.dataset.roLock){
-        el.setAttribute('readonly','readonly');
-        el.addEventListener('focus',unlock);
-        el.addEventListener('pointerdown',unlock);
-        el.addEventListener('touchstart',unlock,{passive:true});
-        el.addEventListener('mousedown',unlock);
-        el.dataset.roLock='1';
-      }
       el.__afDone=true;
     }catch(e){}
   }
