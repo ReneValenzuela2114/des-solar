@@ -5661,7 +5661,7 @@ function vrender(){
         <div>
           <div class="vcard-nom">${esc(nom)}</div>
           ${cot.alias?`<div style="font-size:11.5px;color:var(--blue);font-weight:700;margin-top:1px">✦ ${esc(cot.alias)}</div>`:""}
-          <div class="vcard-sub">${esc(cot.numero||"")}${cot.fecha?" · "+fmtDate(cot.fecha):""}</div>
+          <div class="vcard-sub">${esc(cot.numero||"")}${cot.fecha?" · "+fmtDate(cot.fecha):""}${(cot.estado==='Finalizado'||cot.estado==='Archivada')?(cot.fechaEntrega?` · <span style="color:var(--green);font-weight:700">📦 Entregado ${fmtDate(cot.fechaEntrega)}</span>`:` · <span style="color:#c0392b;font-weight:800">⚠ No entregado</span>`):""}</div>
         </div>
         <select class="vest" style="border-color:${ec};color:${ec}"
           onclick="event.stopPropagation()" onchange="vChangeEstado('${cot.id}',this.value)">${eOpts}</select>
