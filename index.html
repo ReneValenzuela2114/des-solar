@@ -7328,6 +7328,7 @@ let repType='vencer';
 let repF={desde:'',hasta:'',mes:'',anio:'',vendedor:'',cliente:'',estVencer:'pendientes',estVendArr:['Aprobada','Finalizado'],vendSearch:'',garEstado:'todas',garMeses:'',mantEstado:'ambos',mantSearch:''};
 let repInited=false;
 let repMantOrder=null; // orden estable de filas de Mantenimientos; null = recalcular al próximo render
+let repMantRowUi={};   // estado de cada fila de Mantenimientos: 'hecho' | 'editar' | null (colapsado)
 let repVendEstOpen=false; // menú desplegable de estados en Ventas abierto/cerrado
 const REP_INP="font-size:12px;padding:5px 8px;border:1.5px solid var(--line);border-radius:7px;outline:none";
 
@@ -7667,25 +7668,42 @@ function repMantTableHTML(){
     const ant=antiguedadTxt(c.fechaEntrega);
     const hist=mantArr(c);
     const chips=hist.length?hist.map(m=>`<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(21,127,76,.1);color:#157f4c;font-size:10.5px;font-weight:700;padding:2px 6px;border-radius:20px;margin:0 3px 3px 0">${fmtDate(m.fecha)}<span onclick="mantDel('${c.id}','${m.fecha}')" title="Quitar" style="cursor:pointer;color:#c0392b;font-weight:800">✕</span></span>`).join(''):`<span style="font-size:10.5px;color:var(--muted);font-style:italic">Ninguno aún</span>`;
+    const ui=repMantRowUi[c.id]||null;
     const doneDefault=c.proxMant||todayISO();
-    const liberar=`<div style="margin-top:7px;padding-top:7px;border-top:1px dashed var(--line)">
-        <div style="font-size:9px;font-weight:800;color:var(--muted);letter-spacing:.3px;margin-bottom:3px">${c.proxMant?'¿YA SE HIZO? — LIBERAR':'REGISTRAR UNO HECHO'}</div>
-        <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-          <input type="date" id="mantDone_${c.id}" value="${doneDefault}" title="Fecha real en que se hizo el mantenimiento" style="font-size:10.5px;padding:2px 5px;border:1.5px solid var(--line);border-radius:6px">
-          <button type="button" onclick="mantLiberar('${c.id}')" title="Marca el mantenimiento como hecho en esa fecha y libera el programado" style="font-size:10.5px;font-weight:800;border:none;background:var(--green);color:#fff;border-radius:6px;padding:3px 9px;cursor:pointer">✅ ${c.proxMant?'Liberar':'Marcar hecho'}</button>
-        </div>
-      </div>`;
+    const GBTN='font-size:10.5px;font-weight:800;border:none;background:var(--green);color:#fff;border-radius:7px;padding:4px 11px;cursor:pointer';
+    const ICON='font-size:12px;background:none;border:1.5px solid var(--line);border-radius:6px;padding:3px 8px;cursor:pointer;color:var(--navy)';
     let proxCell;
-    if(c.proxMant){
+    if(ui==='hecho'){
+      proxCell=`<div style="font-size:9px;font-weight:800;color:var(--muted);letter-spacing:.3px;margin-bottom:4px">¿CUÁNDO SE HIZO?</div>
+        <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
+          <input type="date" id="mantDone_${c.id}" value="${doneDefault}" style="font-size:10.5px;padding:3px 6px;border:1.5px solid var(--line);border-radius:6px">
+          <button type="button" onclick="mantLiberar('${c.id}')" style="${GBTN}">✓ Confirmar</button>
+          <button type="button" onclick="mantUiSet('${c.id}',null)" title="Cancelar" style="${ICON};color:#c0392b">✕</button>
+        </div>`;
+    } else if(ui==='editar' && c.proxMant){
+      proxCell=`<div style="font-size:9px;font-weight:800;color:var(--muted);letter-spacing:.3px;margin-bottom:4px">CAMBIAR FECHA PROGRAMADA</div>
+        <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
+          <input type="date" value="${c.proxMant}" onchange="mantSetProx('${c.id}',this.value)" style="font-size:10.5px;padding:3px 6px;border:1.5px solid var(--line);border-radius:6px">
+          <button type="button" onclick="mantUiSet('${c.id}',null)" style="font-size:10.5px;font-weight:800;border:1.5px solid var(--line);background:#fff;color:var(--navy);border-radius:7px;padding:4px 11px;cursor:pointer">Listo</button>
+        </div>`;
+    } else if(c.proxMant){
       const r=mantRestante(c.proxMant);
-      proxCell=`<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
-          <span style="font-size:8.5px;font-weight:800;color:var(--muted);letter-spacing:.3px">PROGRAMADO</span>
-          <input type="date" value="${c.proxMant}" onchange="mantSetProx('${c.id}',this.value)" style="font-size:10.5px;padding:2px 5px;border:1.5px solid var(--line);border-radius:6px">
-          <button type="button" onclick="mantClearProx('${c.id}')" title="Quitar la programación" style="font-size:12px;color:#c0392b;background:none;border:none;cursor:pointer">✕</button>
+      const pbg=r.dias==null?'rgba(122,134,153,.12)':(r.dias<0?'rgba(192,57,43,.1)':(r.dias<=30?'rgba(184,134,11,.14)':'rgba(21,127,76,.1)'));
+      proxCell=`<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:6px">
+          <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;padding:2px 9px;border-radius:20px;color:${r.color};background:${pbg}">⏱ ${esc(r.txt)}</span>
+          <span style="font-size:11px;color:var(--muted)">${fmtDate(c.proxMant)}</span>
         </div>
-        <div style="font-size:10.5px;font-weight:800;color:${r.color};margin-top:3px">${esc(r.txt)}</div>${liberar}`;
+        <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
+          <button type="button" onclick="mantUiSet('${c.id}','hecho')" title="Registrar el mantenimiento como hecho y liberar el programado" style="${GBTN}">✓ Marcar hecho</button>
+          <button type="button" onclick="mantUiSet('${c.id}','editar')" title="Editar la fecha programada" style="${ICON}">✎</button>
+          <button type="button" onclick="mantClearProx('${c.id}')" title="Quitar la programación" style="${ICON};color:#c0392b">✕</button>
+        </div>`;
     } else {
-      proxCell=`<button type="button" onclick="mantSetProxDefault('${c.id}')" title="Programar el próximo mantenimiento (por defecto a 1 año)" style="font-size:10.5px;font-weight:800;border:1.5px solid var(--line);background:#fff;color:var(--navy);border-radius:7px;padding:4px 9px;cursor:pointer">📅 Programar próximo</button><div style="font-size:10px;color:var(--muted);margin-top:3px">Sin programar</div>${liberar}`;
+      proxCell=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-size:11px;color:var(--muted)">Sin programar</span>
+          <button type="button" onclick="mantSetProxDefault('${c.id}')" title="Programar el próximo (por defecto a 1 año)" style="font-size:10.5px;font-weight:800;border:1.5px solid var(--line);background:#fff;color:var(--navy);border-radius:7px;padding:4px 11px;cursor:pointer">📅 Programar</button>
+          <button type="button" onclick="mantUiSet('${c.id}','hecho')" title="Registrar un mantenimiento ya hecho" style="font-size:10.5px;font-weight:700;border:none;background:none;color:var(--blue);cursor:pointer;text-decoration:underline">Registrar hecho</button>
+        </div>`;
     }
     return `<tr>
       <td style="${td}">${proy}<div style="font-size:10px;color:var(--muted)">${esc(c.numero||'')} · ${c.estado==='Archivada'?'Archivado':'Finalizado'}</div></td>
@@ -7709,9 +7727,11 @@ function mantLiberar(cotId){
   c.mantenimientos.push({fecha:f});
   const tieneProx=!!c.proxMant;
   c.proxMant=null; // al marcarlo hecho, se libera el programado
+  repMantRowUi[cotId]=null;
   c.updated=Date.now(); qsave(); repRenderResult();
   toast(tieneProx?'Mantenimiento hecho y próximo liberado ✓':'Mantenimiento registrado ✓');
 }
+function mantUiSet(cotId,mode){ repMantRowUi[cotId]=mode; repRenderResult(); }
 function mantDel(cotId,fechaISO){
   const c=cotizaciones.find(x=>x.id===cotId); if(!c||!Array.isArray(c.mantenimientos))return;
   if(!confirm('¿Quitar el mantenimiento del '+fmtDate(fechaISO)+'?'))return;
@@ -7722,6 +7742,7 @@ function mantSetProxDefault(cotId){
   const c=cotizaciones.find(x=>x.id===cotId); if(!c)return;
   const base=mantUltimaISO(c)||c.fechaEntrega||todayISO();
   c.proxMant=addMonthsISO(base,12);
+  repMantRowUi[cotId]=null;
   c.updated=Date.now(); qsave(); repRenderResult();
 }
 function mantSetProx(cotId,val){
@@ -7731,7 +7752,7 @@ function mantSetProx(cotId,val){
 }
 function mantClearProx(cotId){
   const c=cotizaciones.find(x=>x.id===cotId); if(!c)return;
-  c.proxMant=null; c.updated=Date.now(); qsave(); repRenderResult();
+  c.proxMant=null; repMantRowUi[cotId]=null; c.updated=Date.now(); qsave(); repRenderResult();
 }
 function repMantData(){
   const list=repMantList();
@@ -7765,6 +7786,7 @@ function repMantData(){
 function repRender(){
   if(!repInited){ repInited=true; const ym=todayISO().slice(0,7); repF.mes=ym; const b=repMonthBounds(ym); repF.desde=b.desde; repF.hasta=b.hasta; }
   repMantOrder=null; // al entrar a la pestaña / cambiar de reporte se reordena; durante edición no (esas llaman a repRenderResult)
+  repMantRowUi={};   // colapsa las filas de mantenimiento al entrar/cambiar de reporte
   repRenderTypeBar(); repRenderFilters(); repRenderResult();
 }
 function repRenderTypeBar(){
