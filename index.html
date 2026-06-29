@@ -7325,11 +7325,12 @@ const REP_TYPES=[
   {id:'mant',    icon:'🔧', label:'Mantenimientos'}
 ];
 let repType='vencer';
-let repF={desde:'',hasta:'',mes:'',anio:'',vendedor:'',cliente:'',estVencer:'pendientes',estVendArr:['Aprobada','Finalizado'],vendSearch:'',garEstado:'todas',garMeses:'',mantEstado:'ambos',mantSearch:''};
+let repF={desde:'',hasta:'',mes:'',anio:'',vendedor:'',cliente:'',estVencer:'pendientes',estVendArr:['Aprobada','Finalizado'],vendSearch:'',garEstado:'todas',garMeses:'',mantEstado:'ambos',mantSearch:'',cobrarEstArr:['Aprobada','Finalizado']};
 let repInited=false;
 let repMantOrder=null; // orden estable de filas de Mantenimientos; null = recalcular al próximo render
 let repMantRowUi={};   // estado de cada fila de Mantenimientos: 'hecho' | 'editar' | null (colapsado)
 let repVendEstOpen=false; // menú desplegable de estados en Ventas abierto/cerrado
+let repCobrarEstOpen=false; // menú desplegable de estados en Cuentas por cobrar
 const REP_INP="font-size:12px;padding:5px 8px;border:1.5px solid var(--line);border-radius:7px;outline:none";
 
 /* ---- Periodo rápido (selector de mes con flechas) ---- */
@@ -7531,8 +7532,9 @@ function repDataVendedor(){
 }
 function repDataCobrar(){
   const items=[];
+  const selC=(repF.cobrarEstArr&&repF.cobrarEstArr.length)?repF.cobrarEstArr:[];
   (cotizaciones||[]).forEach(c=>{
-    if(!(c.estado==='Aprobada'||c.estado==='Finalizado')) return;
+    if(!selC.includes(c.estado)) return;
     if(repF.vendedor && (c.vendedor||'')!==repF.vendedor) return;
     if(repF.cliente && !((c.clienteNombre||'').toLowerCase().includes(repF.cliente.toLowerCase()))) return;
     const cot=precioAcordado(c); // precio final acordado (= cotizado si no hay precio especial)
@@ -7550,13 +7552,13 @@ function repDataCobrar(){
   const tCot=items.reduce((a,i)=>a+i.cot,0), tCob=items.reduce((a,i)=>a+i.cobrado,0), tPC=items.reduce((a,i)=>a+i.porCobrar,0);
   return {
     titulo:'Cuentas por cobrar',
-    periodoTxt:'Proyectos aprobados y finalizados con saldo pendiente de cobro',
-    filtrosTxt:repFiltrosTxt([['Vendedor',repF.vendedor||'Todos'],['Cliente',repF.cliente||'Todos']]),
+    periodoTxt:'Proyectos con saldo pendiente de cobro',
+    filtrosTxt:repFiltrosTxt([['Estado',selC.length?selC.join(' + '):'(ninguno)'],['Vendedor',repF.vendedor||'Todos'],['Cliente',repF.cliente||'Todos']]),
     columns:[{label:'Cliente'},{label:'Proyecto'},{label:'Vendedor'},{label:'Acordado',a:'right'},{label:'Cobrado',a:'right'},{label:'Por cobrar',a:'right'}],
     rows,
     foot:[{t:`Total · ${items.length}`,b:true},{t:''},{t:''},{t:moneyGTQ(tCot),a:'right'},{t:moneyGTQ(tCob),a:'right',c:'#157f4c'},{t:moneyGTQ(tPC),a:'right',c:'#c0392b'}],
     cards:[{k:'Proyectos',v:String(items.length)},{k:'Total cobrado',v:moneyGTQ(tCob),c:'#157f4c'},{k:'Total por cobrar',v:moneyGTQ(tPC),c:'#c0392b'}],
-    nota:'Por cobrar = precio acordado − cobrado (entradas en estado Listo). El precio acordado es el total cotizado salvo que en el proyecto se haya fijado un precio final distinto (descuento o precio especial). Solo proyectos aprobados o finalizados con saldo pendiente.'
+    nota:'Por cobrar = precio acordado − cobrado (entradas en estado Listo). El precio acordado es el total cotizado salvo que en el proyecto se haya fijado un precio final distinto (descuento o precio especial). Solo se muestran los que tienen saldo pendiente, según el estado seleccionado arriba.'
   };
 }
 function repDataPagar(){
@@ -7797,7 +7799,7 @@ function repRenderTypeBar(){
   }).join("");
 }
 function repSetType(id){ repType=id; repRender(); }
-function repClear(){ repF={desde:'',hasta:'',mes:'',anio:'',vendedor:'',cliente:'',estVencer:'pendientes',estVendArr:['Aprobada','Finalizado'],vendSearch:'',garEstado:'todas',garMeses:'',mantEstado:'ambos',mantSearch:''}; repRender(); }
+function repClear(){ repF={desde:'',hasta:'',mes:'',anio:'',vendedor:'',cliente:'',estVencer:'pendientes',estVendArr:['Aprobada','Finalizado'],vendSearch:'',garEstado:'todas',garMeses:'',mantEstado:'ambos',mantSearch:'',cobrarEstArr:['Aprobada','Finalizado']}; repRender(); }
 function repFld(label,inner){ return `<div style="display:flex;flex-direction:column;gap:3px">${label?`<label style="font-size:9.5px;font-weight:800;color:var(--muted);letter-spacing:.3px;text-transform:uppercase">${label}</label>`:''}${inner}</div>`; }
 function repVendSelect(){
   const vs=repVendedores();
@@ -7828,6 +7830,30 @@ function repVendEstChange(){
   repF.estVendArr=arr; repRenderFilters(); repRenderResult();
 }
 function repVendEstAll(on){ repF.estVendArr = on?REP_VEND_ESTS.map(e=>e[0]):[]; repRenderFilters(); repRenderResult(); }
+function repCobrarEstadoDropdownHTML(){
+  const arr=repF.cobrarEstArr||[];
+  let summary;
+  if(arr.length===REP_VEND_ESTS.length) summary='Todos';
+  else if(arr.length===0) summary='Ninguno';
+  else summary=REP_VEND_ESTS.filter(e=>arr.includes(e[0])).map(e=>e[1]).join(', ');
+  const rows=REP_VEND_ESTS.map(([s,lbl])=>`<label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--navy);cursor:pointer;padding:5px 6px;border-radius:6px"><input type="checkbox" id="repCobEst${s}" ${arr.includes(s)?'checked':''} onchange="repCobrarEstChange()" style="width:14px;height:14px;accent-color:var(--brand);cursor:pointer">${lbl}</label>`).join('');
+  return `<div style="position:relative">
+    <button type="button" onclick="repCobrarEstToggleOpen()" style="${REP_INP};min-width:180px;cursor:pointer;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(summary)}</span><span style="color:var(--muted);font-size:10px">▼</span></button>
+    <div id="repCobrarEstPanel" style="display:${repCobrarEstOpen?'block':'none'};position:absolute;z-index:40;top:calc(100% + 4px);left:0;background:#fff;border:1.5px solid var(--line);border-radius:10px;box-shadow:0 10px 28px rgba(12,54,95,.18);padding:7px;min-width:185px">
+      ${rows}
+      <div style="display:flex;gap:6px;margin-top:6px;border-top:1px solid var(--line);padding-top:7px">
+        <button type="button" onclick="repCobrarEstAll(true)" style="flex:1;font-size:11px;font-weight:700;padding:6px;border:1.5px solid var(--line);border-radius:7px;background:#fff;color:var(--navy);cursor:pointer">Todos</button>
+        <button type="button" onclick="repCobrarEstAll(false)" style="flex:1;font-size:11px;font-weight:700;padding:6px;border:1.5px solid var(--line);border-radius:7px;background:#fff;color:var(--navy);cursor:pointer">Ninguno</button>
+      </div>
+    </div>
+  </div>`;
+}
+function repCobrarEstToggleOpen(){ repCobrarEstOpen=!repCobrarEstOpen; repRenderFilters(); }
+function repCobrarEstChange(){
+  const arr=[]; REP_VEND_ESTS.forEach(([s])=>{ const el=$('repCobEst'+s); if(el&&el.checked) arr.push(s); });
+  repF.cobrarEstArr=arr; repRenderFilters(); repRenderResult();
+}
+function repCobrarEstAll(on){ repF.cobrarEstArr = on?REP_VEND_ESTS.map(e=>e[0]):[]; repRenderFilters(); repRenderResult(); }
 function repOptHTML(val,label,cur){ return `<option value="${val}" ${cur===val?'selected':''}>${label}</option>`; }
 function repRenderFilters(){
   const box=$("repFilters"); if(!box)return;
@@ -7852,6 +7878,10 @@ function repRenderFilters(){
   } else if(repType==='mant'){
     f=repFld('Estado',`<select id="repMantEstado" onchange="repApply()" style="${REP_INP}">${repOptHTML('ambos','Finalizados y Archivados',repF.mantEstado)}${repOptHTML('Finalizado','Finalizados',repF.mantEstado)}${repOptHTML('Archivada','Archivados',repF.mantEstado)}</select>`)
       +repFld('Buscar proyecto',`<input id="repMantSearch" type="text" placeholder="Cliente, alias, No., NIS, NIT..." value="${esc(repF.mantSearch||'')}" oninput="repApply()" style="${REP_INP};min-width:230px">`);
+  } else if(repType==='cobrar'){
+    f=repFld('Estado',repCobrarEstadoDropdownHTML())
+      +repFld('Vendedor',repVendSelect())
+      +repFld('Cliente',`<input id="repCliente" type="text" placeholder="Buscar cliente..." value="${esc(repF.cliente||'')}" oninput="repApply()" style="${REP_INP};min-width:190px">`);
   } else {
     f=repFld('Vendedor',repVendSelect())
       +repFld('Cliente',`<input id="repCliente" type="text" placeholder="Buscar cliente..." value="${esc(repF.cliente||'')}" oninput="repApply()" style="${REP_INP};min-width:190px">`);
