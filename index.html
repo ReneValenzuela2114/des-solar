@@ -5852,7 +5852,7 @@ function vAddMov(cotId){
     const cuentaId=uid();
     const estadoPrimerPago=($("vMovEstado")&&$("vMovEstado").value)||"completado";
     v.cuentas.push({id:cuentaId,tipo,descripcion:desc,totalAcordado:total,creado:fecha});
-    v.movimientos.push({id:uid(),fecha,descripcion:desc+" · cuota 1",entrada:tipo==="entrada"?primerPago:0,salida:tipo==="salida"?primerPago:0,cuentaId,provId:null,estado:estadoPrimerPago,comprobanteId:null});
+    v.movimientos.push({id:uid(),fecha,descripcion:desc+" · cuota 1",entrada:tipo==="entrada"?primerPago:0,salida:tipo==="salida"?primerPago:0,cuentaId,provId:null,estado:estadoPrimerPago,comprobanteId:null,comprobante:vFormComp||null});
     vsave();toast(tipo==="entrada"?"Cobro en cuotas creado ✓":"Gasto en cuotas creado ✓");
   } else {
     const monto=parseFloat($("vMovMonto").value)||0;
@@ -6008,7 +6008,14 @@ async function vReadComp(btn){
     const datos=await finLeerBaucher(vFormComp, vFormComp.type, key);
     vFormComp.datos=datos;
     if(datos){
-      if(!$("vMovMonto").value && datos.monto){ const n=pagosParseNum(datos.monto); if(n) $("vMovMonto").value=n; }
+      const esCuotas=$("vMovEsCuotas")&&$("vMovEsCuotas").checked;
+      if(datos.monto){
+        const n=pagosParseNum(datos.monto);
+        if(n){
+          if(esCuotas){ if($("vMovPrimerPago") && !$("vMovPrimerPago").value) $("vMovPrimerPago").value=n; }
+          else { if(!$("vMovMonto").value) $("vMovMonto").value=n; }
+        }
+      }
       if(datos.fecha){ const iso=finFechaISO(datos.fecha); if(iso) $("vMovFecha").value=iso; }
       if(!$("vMovDesc").value){ const d2=[datos.banco,datos.numero?("Ref "+datos.numero):""].filter(Boolean).join(" · "); if(d2) $("vMovDesc").value=d2; }
     }
