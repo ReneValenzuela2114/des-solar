@@ -7537,28 +7537,28 @@ function repDataCobrar(){
     if(!selC.includes(c.estado)) return;
     if(repF.vendedor && (c.vendedor||'')!==repF.vendedor) return;
     if(repF.cliente && !((c.clienteNombre||'').toLowerCase().includes(repF.cliente.toLowerCase()))) return;
-    const cot=precioAcordado(c); // precio final acordado (= cotizado si no hay precio especial)
     const v=(typeof ventas!=="undefined"?ventas:[]).find(x=>x.cotId===c.id);
-    const cobrado=(v&&v.movimientos?v.movimientos:[]).reduce((a,m)=>a+(m.estado==='completado'?(parseFloat(m.entrada)||0):0),0);
-    const porCobrar=Math.round((cot-cobrado)*100)/100;
+    const movs=(v&&v.movimientos)?v.movimientos:[];
+    const cobrado=movs.reduce((a,m)=>a+(m.estado==='completado'?(parseFloat(m.entrada)||0):0),0);
+    const porCobrar=Math.round(movs.reduce((a,m)=>a+(m.estado!=='completado'?(parseFloat(m.entrada)||0):0),0)*100)/100;
     if(porCobrar<=0.005) return;
-    items.push({c,cot,cobrado,porCobrar});
+    items.push({c,cobrado,porCobrar});
   });
   items.sort((a,b)=>b.porCobrar-a.porCobrar);
-  const rows=items.map(({c,cot,cobrado,porCobrar})=>[
+  const rows=items.map(({c,cobrado,porCobrar})=>[
     c.clienteNombre||'—', c.numero||'—', c.vendedor||'—',
-    {t:moneyGTQ(cot),a:'right'}, {t:moneyGTQ(cobrado),a:'right',c:'#157f4c'},
+    {t:moneyGTQ(cobrado),a:'right',c:'#157f4c'},
     {t:moneyGTQ(porCobrar),a:'right',c:'#c0392b',b:true}]);
-  const tCot=items.reduce((a,i)=>a+i.cot,0), tCob=items.reduce((a,i)=>a+i.cobrado,0), tPC=items.reduce((a,i)=>a+i.porCobrar,0);
+  const tCob=items.reduce((a,i)=>a+i.cobrado,0), tPC=items.reduce((a,i)=>a+i.porCobrar,0);
   return {
     titulo:'Cuentas por cobrar',
-    periodoTxt:'Proyectos con saldo pendiente de cobro',
+    periodoTxt:'Pagos pendientes de cobro registrados en los proyectos',
     filtrosTxt:repFiltrosTxt([['Estado',selC.length?selC.join(' + '):'(ninguno)'],['Vendedor',repF.vendedor||'Todos'],['Cliente',repF.cliente||'Todos']]),
-    columns:[{label:'Cliente'},{label:'Proyecto'},{label:'Vendedor'},{label:'Acordado',a:'right'},{label:'Cobrado',a:'right'},{label:'Por cobrar',a:'right'}],
+    columns:[{label:'Cliente'},{label:'Proyecto'},{label:'Vendedor'},{label:'Cobrado',a:'right'},{label:'Por cobrar',a:'right'}],
     rows,
-    foot:[{t:`Total · ${items.length}`,b:true},{t:''},{t:''},{t:moneyGTQ(tCot),a:'right'},{t:moneyGTQ(tCob),a:'right',c:'#157f4c'},{t:moneyGTQ(tPC),a:'right',c:'#c0392b'}],
+    foot:[{t:`Total · ${items.length}`,b:true},{t:''},{t:''},{t:moneyGTQ(tCob),a:'right',c:'#157f4c'},{t:moneyGTQ(tPC),a:'right',c:'#c0392b'}],
     cards:[{k:'Proyectos',v:String(items.length)},{k:'Total cobrado',v:moneyGTQ(tCob),c:'#157f4c'},{k:'Total por cobrar',v:moneyGTQ(tPC),c:'#c0392b'}],
-    nota:'Por cobrar = precio acordado − cobrado (entradas en estado Listo). El precio acordado es el total cotizado salvo que en el proyecto se haya fijado un precio final distinto (descuento o precio especial). Solo se muestran los que tienen saldo pendiente, según el estado seleccionado arriba.'
+    nota:'Por cobrar = suma de las entradas (pagos del cliente) en estado Pendiente registradas en cada proyecto. No usa el total cotizado ni el acordado. Solo aparecen los proyectos que tienen pagos pendientes registrados.'
   };
 }
 function repDataPagar(){
