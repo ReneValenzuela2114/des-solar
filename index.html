@@ -10892,56 +10892,77 @@ function archCatRender(){
   // Arrastrar para reordenar categorías
   let dragSrc=null;
   box.querySelectorAll('.catrow').forEach(el=>{
-    el.addEventListener('dragstart',e=>{ dragSrc=el; el.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',el.dataset.idx); });
-    el.addEventListener('dragend',()=>{ el.classList.remove('dragging'); box.querySelectorAll('.catrow').forEach(x=>x.classList.remove('dragover')); });
-    el.addEventListener('dragover',e=>{ e.preventDefault(); e.dataTransfer.dropEffect='move'; box.querySelectorAll('.catrow').forEach(x=>x.classList.remove('dragover')); if(el!==dragSrc) el.classList.add('dragover'); });
+    el.addEventListener('dragstart',e=>{ dragSrc=el; el.classList.add('dragging');
+      e.dataTransfer.effectAllowed='move';
+      e.dataTransfer.setData('text/plain',el.dataset.idx);
+    });
+    el.addEventListener('dragend',()=>{
+      el.classList.remove('dragging');
+      box.querySelectorAll('.catrow').forEach(x=>x.classList.remove('dragover'));
+    });
+    el.addEventListener('dragover',e=>{
+      e.preventDefault();
+      e.dataTransfer.dropEffect='move';
+      box.querySelectorAll('.catrow').forEach(x=>x.classList.remove('dragover'));
+      if(el!==dragSrc) el.classList.add('dragover');
+    });
     el.addEventListener('dragleave',()=>el.classList.remove('dragover'));
     el.addEventListener('drop',e=>{
-      e.preventDefault(); if(!dragSrc||dragSrc===el) return;
-      const from=parseInt(dragSrc.dataset.idx,10), to=parseInt(el.dataset.idx,10);
-      const moved=archCats.splice(from,1)[0]; archCats.splice(to,0,moved);
-      archCatsSave(); archCatRender(); archFillCats($("archCategoria"), true);
+      e.preventDefault();
+      if(!dragSrc||dragSrc===el)return;
+      const from=parseInt(dragSrc.dataset.idx,10);
+      const to=parseInt(el.dataset.idx,10);
+      if(isNaN(from)||isNaN(to)||from===to)return;
+      const moved=archCats.splice(from,1)[0];
+      archCats.splice(to,0,moved);
+      archCatsSave();
+      archCatRender();
+      if(typeof archFillCats==="function") archFillCats($("archCategoria"), true);
+      if(typeof archRender==="function") archRender();
     });
   });
 }
 function archCatAdd(){
   const inp=$("archCatNueva"); if(!inp) return;
-  const v=(inp.value||"").trim();
-  if(!v){ inp.focus(); return; }
-  if(archCats.some(c=>c.toLowerCase()===v.toLowerCase())){ toast("Esa categoría ya existe",true); return; }
-  archCats.push(v); archCatsSave();
+  const name=(inp.value||"").trim();
+  if(!name){ toast("Escribe el nombre de la categoría",true); inp.focus(); return; }
+  if(archCats.some(c=>c.toLowerCase()===name.toLowerCase())){ toast("Esa categoría ya existe",true); return; }
+  archCats.push(name);
+  archCatsSave();
   inp.value="";
   archCatRender();
-  archFillCats($("archCategoria"), true);
+  if(typeof archFillCats==="function") archFillCats($("archCategoria"), true);
+  if(typeof archRender==="function") archRender();
   toast("Categoría agregada ✓");
 }
 function archCatRename(name){
-  const nuevo=prompt(`Nuevo nombre para la categoría "${name}":`, name);
-  if(nuevo===null) return;
-  const v=nuevo.trim();
-  if(!v){ toast("El nombre no puede quedar vacío",true); return; }
-  if(v===name){ return; }
-  if(archCats.some(c=>c.toLowerCase()===v.toLowerCase())){ toast("Ya existe una categoría con ese nombre",true); return; }
-  const i=archCats.indexOf(name); if(i<0) return;
-  archCats[i]=v; archCatsSave();
-  // Renombrar la categoría en todos los archivos que la usaban
-  let n=0; archivos.forEach(a=>{ if(a.categoria===name){ a.categoria=v; n++; } }); if(n) archSave();
+  const idx=archCats.indexOf(name); if(idx<0) return;
+  const nv=prompt("Nuevo nombre de la categoría:", name);
+  if(nv===null) return;
+  const nuevo=nv.trim();
+  if(!nuevo){ toast("El nombre no puede quedar vacío",true); return; }
+  if(nuevo===name) return;
+  if(archCats.some((c,i)=>i!==idx && c.toLowerCase()===nuevo.toLowerCase())){ toast("Ya existe una categoría con ese nombre",true); return; }
+  archCats[idx]=nuevo;
+  (typeof archivos!=="undefined"?archivos:[]).forEach(a=>{ if(a.categoria===name) a.categoria=nuevo; });
+  archCatsSave();
+  if(typeof archSave==="function") archSave();
   archCatRender();
-  archFillCats($("archCategoria"), true);
-  archRender();
-  toast(`Categoría renombrada${n?` · ${n} archivo(s) actualizados`:""} ✓`);
+  if(typeof archFillCats==="function") archFillCats($("archCategoria"), true);
+  if(typeof archRender==="function") archRender();
+  toast("Categoría renombrada ✓");
 }
 function archCatDelete(name){
-  const n=archCatCount(name);
-  if(n>0){ toast(`No se puede borrar "${name}": tiene ${n} archivo(s). Muévelos a otra categoría o bórralos primero.`,true); return; }
-  if(!confirm(`¿Eliminar la categoría "${name}"?`)) return;
-  archCats=archCats.filter(c=>c!==name); archCatsSave();
+  if(archCatCount(name)>0){ toast("Esa categoría tiene archivos; muévelos o bórralos primero",true); return; }
+  const idx=archCats.indexOf(name); if(idx<0) return;
+  if(!confirm('¿Eliminar la categoría "'+name+'"?')) return;
+  archCats.splice(idx,1);
+  archCatsSave();
   archCatRender();
-  archFillCats($("archCategoria"), true);
-  archRender();
+  if(typeof archFillCats==="function") archFillCats($("archCategoria"), true);
+  if(typeof archRender==="function") archRender();
   toast("Categoría eliminada");
 }
-
 </script>
 </body>
 </html>
