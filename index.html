@@ -7367,28 +7367,32 @@ function repPreset(kind){
   if(kind==='todo'){ repF.mes=''; repF.anio=''; repF.desde=''; repF.hasta=''; repRender(); return; }
 }
 function repMonthBarHTML(){
-  const STEP="font-size:15px;font-weight:800;padding:2px 9px;border-radius:7px;border:1.5px solid var(--line);background:#fff;color:var(--navy);cursor:pointer;line-height:1";
-  const sel="font-size:11px;font-weight:800;padding:5px 12px;border-radius:8px;border:1.5px solid var(--navy);background:var(--navy);color:#fff;cursor:pointer";
-  const unsel="font-size:11px;font-weight:800;padding:5px 12px;border-radius:8px;border:1.5px solid var(--line);background:#fff;color:var(--navy);cursor:pointer";
+  const STEP="font-size:19px;font-weight:800;padding:1px 11px;border-radius:9px;border:1.5px solid var(--line);background:#fff;color:var(--navy);cursor:pointer;line-height:1";
   const yr=repYearCurrent();
   const ymCur=todayISO().slice(0,7);
   const yrOn=!!repF.anio, mesOn=!!repF.mes, todoOn=!repF.desde&&!repF.hasta;
-  return `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:11px;padding-bottom:11px;border-bottom:1px dashed var(--line)">
-    <span style="font-size:9.5px;font-weight:800;color:var(--muted);letter-spacing:.3px;text-transform:uppercase;margin-right:2px">Periodo</span>
-    <button type="button" onclick="repSetYear(${parseInt(yr,10)})" title="Filtrar todo este año" style="${yrOn?sel:unsel}">Año</button>
-    <button type="button" onclick="repYearStep(-1)" title="Año anterior" style="${STEP}">‹</button>
-    <b style="font-size:12.5px;color:var(--navy);min-width:42px;text-align:center">${yr}</b>
-    <button type="button" onclick="repYearStep(1)" title="Año siguiente" style="${STEP}">›</button>
-    <span style="width:1px;height:18px;background:var(--line);margin:0 4px"></span>
-    <button type="button" onclick="repSetMonth('${repF.mes||ymCur}')" title="Filtrar por mes" style="${mesOn?sel:unsel}">Mes</button>
-    <button type="button" onclick="repMonthStep(-1)" title="Mes anterior" style="${STEP}">‹</button>
-    <input type="month" id="repMes" value="${repF.mes||''}" onchange="repSetMonth(this.value)" style="${REP_INP}">
-    <button type="button" onclick="repMonthStep(1)" title="Mes siguiente" style="${STEP}">›</button>
-    <span style="width:1px;height:18px;background:var(--line);margin:0 4px"></span>
-    <button type="button" onclick="repPreset('todo')" title="Quitar el filtro de fechas (todas)" style="${todoOn?sel:unsel}">Todo</button>
+  const seg=(active,label,onclick)=>`<button type="button" onclick="${onclick}" style="font-size:12px;font-weight:800;padding:7px 17px;border:none;border-radius:8px;cursor:pointer;white-space:nowrap;background:${active?'#fff':'transparent'};color:${active?'var(--navy)':'var(--muted)'};box-shadow:${active?'0 1px 2px rgba(12,54,95,.20)':'none'}">${label}</button>`;
+  const segmented=`<div style="display:inline-flex;gap:3px;background:var(--soft);border:1px solid var(--line);border-radius:11px;padding:3px">${seg(yrOn,'Año',`repSetYear(${parseInt(yr,10)})`)}${seg(mesOn,'Mes',`repSetMonth('${repF.mes||ymCur}')`)}${seg(todoOn,'Todo',`repPreset('todo')`)}</div>`;
+  let stepper;
+  if(yrOn){
+    stepper=`<button type="button" onclick="repYearStep(-1)" title="Año anterior" style="${STEP}">‹</button>
+      <b style="flex:1;font-size:17px;font-weight:800;color:var(--navy);text-align:center">${yr}</b>
+      <button type="button" onclick="repYearStep(1)" title="Año siguiente" style="${STEP}">›</button>`;
+  } else if(mesOn){
+    stepper=`<button type="button" onclick="repMonthStep(-1)" title="Mes anterior" style="${STEP}">‹</button>
+      <input type="month" id="repMes" value="${repF.mes||''}" onchange="repSetMonth(this.value)" style="${REP_INP};flex:1;min-width:0;text-align:center;font-weight:700">
+      <button type="button" onclick="repMonthStep(1)" title="Mes siguiente" style="${STEP}">›</button>`;
+  } else {
+    stepper=`<span style="flex:1;text-align:center;font-size:13px;font-weight:700;color:var(--muted)">Todas las fechas</span>`;
+  }
+  return `<div style="margin-bottom:11px;padding-bottom:11px;border-bottom:1px dashed var(--line)">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="font-size:9.5px;font-weight:800;color:var(--muted);letter-spacing:.3px;text-transform:uppercase">Periodo</span>
+      ${segmented}
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;margin-top:10px;max-width:330px">${stepper}</div>
   </div>`;
 }
-
 function repVendedores(){
   const set={}; (typeof cotizaciones!=="undefined"?cotizaciones:[]).forEach(c=>{const v=(c.vendedor||'').trim();if(v)set[v]=1;});
   return Object.keys(set).sort((a,b)=>a.localeCompare(b));
