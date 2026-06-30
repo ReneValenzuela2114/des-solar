@@ -7332,12 +7332,13 @@ const REP_TYPES=[
   {id:'mant',    icon:'🔧', label:'Mantenimientos'}
 ];
 let repType='vencer';
-let repF={desde:'',hasta:'',mes:'',anio:'',vendedor:'',cliente:'',estVencer:'pendientes',estVendArr:['Aprobada','Finalizado'],vendSearch:'',garEstado:'todas',garMeses:'',mantEstado:'ambos',mantSearch:'',cobrarEstArr:['Aprobada','Finalizado']};
+let repF={desde:'',hasta:'',mes:'',anio:'',vendedor:'',cliente:'',estVencer:'pendientes',estVendArr:['Aprobada','Finalizado'],vendSearch:'',garEstado:'todas',garMeses:'',mantEstado:'ambos',mantSearch:'',cobrarEstArr:['Aprobada','Finalizado'],vendArr:null,showGanancia:false};
 let repInited=false;
 let repMantOrder=null; // orden estable de filas de Mantenimientos; null = recalcular al próximo render
 let repMantRowUi={};   // estado de cada fila de Mantenimientos: 'hecho' | 'editar' | null (colapsado)
 let repVendEstOpen=false; // menú desplegable de estados en Ventas abierto/cerrado
 let repCobrarEstOpen=false; // menú desplegable de estados en Cuentas por cobrar
+let repVendListOpen=false; // menú desplegable de vendedores (multi) en Ventas
 const REP_INP="font-size:12px;padding:5px 8px;border:1.5px solid var(--line);border-radius:7px;outline:none";
 
 /* ---- Periodo rápido (selector de mes con flechas) ---- */
@@ -7494,10 +7495,12 @@ function repDataVendedor(){
   const sel=(repF.estVendArr&&repF.estVendArr.length)?repF.estVendArr:[];
   const estLabel=sel.length?sel.join(' + '):'(ninguno)';
   const q=(repF.vendSearch||'').toLowerCase().trim();
+  const showG=!!repF.showGanancia;
+  const gastadoDe=(c)=>{ const v=(typeof ventas!=="undefined"?ventas:[]).find(x=>x.cotId===c.id); return (v&&v.movimientos?v.movimientos:[]).reduce((a,m)=>a+(m.estado==='completado'?(parseFloat(m.salida)||0):0),0); };
   const groups={};
   (cotizaciones||[]).forEach(c=>{
     if(!sel.includes(c.estado)) return;
-    if(repF.vendedor && (c.vendedor||'')!==repF.vendedor) return;
+    if(repF.vendArr && !repF.vendArr.includes(c.vendedor||'')) return;
     if(q && !repMantHaystack(c).includes(q)) return;
     if(!repInRange(c.fecha,repF.desde,repF.hasta)) return;
     const v=(c.vendedor||'(sin vendedor)');
@@ -7505,7 +7508,9 @@ function repDataVendedor(){
   });
   const vendList=Object.keys(groups).map(v=>{
     const arr=groups[v];
-    return {vend:v, items:arr, n:arr.length, monto:arr.reduce((a,c)=>a+precioAcordado(c),0)};
+    return {vend:v, items:arr, n:arr.length,
+      monto:arr.reduce((a,c)=>a+precioAcordado(c),0),
+      gan:arr.reduce((a,c)=>a+(precioAcordado(c)-gastadoDe(c)),0)};
   }).sort((a,b)=>b.monto-a.monto);
   const rows=[];
   vendList.forEach(g=>{
@@ -7513,32 +7518,43 @@ function repDataVendedor(){
     its.forEach((c,i)=>{
       const lbl=(c.clienteNombre||'(sin cliente)')+(c.alias?' · '+c.alias:'');
       const esp=c.precioAcordado!=null;
-      rows.push([
+      const row=[
         {t:i===0?g.vend:'', b:i===0},
         lbl,
         fmtDate(c.fecha)||'—',
         {t:c.numero||'—',a:'center'},
         {t:moneyGTQ(precioAcordado(c)),a:'right',c:esp?'#157f4c':null}
-      ]);
+      ];
+      if(showG){ const gan=precioAcordado(c)-gastadoDe(c); row.push({t:moneyGTQ(gan),a:'right',c:gan>=0?'#157f4c':'#c0392b'}); }
+      rows.push(row);
     });
-    rows.push([
+    const sub=[
       {t:''},
       {t:`Subtotal · ${g.n} proyecto(s)`,b:true},
       {t:''},
       {t:'',a:'center'},
       {t:moneyGTQ(g.monto),a:'right',b:true,c:'var(--navy)'}
-    ]);
+    ];
+    if(showG) sub.push({t:moneyGTQ(g.gan),a:'right',b:true,c:'var(--navy)'});
+    rows.push(sub);
   });
-  const totN=vendList.reduce((a,g)=>a+g.n,0), totM=vendList.reduce((a,g)=>a+g.monto,0);
+  const totN=vendList.reduce((a,g)=>a+g.n,0), totM=vendList.reduce((a,g)=>a+g.monto,0), totG=vendList.reduce((a,g)=>a+g.gan,0);
+  const vendLabel=(repF.vendArr===null)?'Todos':(repF.vendArr.length?repF.vendArr.join(', '):'Ninguno');
+  const columns=[{label:'Vendedor'},{label:'Proyecto'},{label:'Creada'},{label:'No.',a:'center'},{label:'Acordado',a:'right'}];
+  if(showG) columns.push({label:'Ganancia bruta',a:'right'});
+  const foot=[{t:'TOTAL',b:true},{t:`${totN} proyecto(s)`},{t:''},{t:'',a:'center'},{t:moneyGTQ(totM),a:'right'}];
+  if(showG) foot.push({t:moneyGTQ(totG),a:'right'});
+  const cards=[{k:'Vendedores',v:String(vendList.length)},{k:'Proyectos vendidos',v:String(totN)},{k:'Monto total (acordado)',v:moneyGTQ(totM),c:'#157f4c'}];
+  if(showG) cards.push({k:'Ganancia bruta total',v:moneyGTQ(totG),c:totG>=0?'#157f4c':'#c0392b'});
   return {
     titulo:'Ventas',
     periodoTxt:repRangoTxt(repF.desde,repF.hasta,'creación'),
-    filtrosTxt:repFiltrosTxt([['Estado',estLabel],['Vendedor',repF.vendedor||'Todos'],['Buscar',repF.vendSearch||'—']]),
-    columns:[{label:'Vendedor'},{label:'Proyecto'},{label:'Creada'},{label:'No.',a:'center'},{label:'Acordado',a:'right'}],
+    filtrosTxt:repFiltrosTxt([['Estado',estLabel],['Vendedor',vendLabel],['Buscar',repF.vendSearch||'—']]),
+    columns,
     rows,
-    foot:[{t:'TOTAL',b:true},{t:`${totN} proyecto(s)`},{t:''},{t:'',a:'center'},{t:moneyGTQ(totM),a:'right'}],
-    cards:[{k:'Vendedores',v:String(vendList.length)},{k:'Proyectos vendidos',v:String(totN)},{k:'Monto total (acordado)',v:moneyGTQ(totM),c:'#157f4c'}],
-    nota:'Detalle por vendedor: cada proyecto vendido con su precio acordado (el cotizado salvo que se haya fijado un precio especial; estos van en verde). El subtotal de cada vendedor sirve para calcular comisiones. Según el estado y la fecha de creación seleccionados.'
+    foot,
+    cards,
+    nota:'Detalle por vendedor con su precio acordado. '+(showG?'Ganancia bruta = precio acordado − gastos del proyecto (salidas en estado Listo). ':'')+'El subtotal de cada vendedor sirve para comisiones. Según el estado y la fecha de creación seleccionados.'
   };
 }
 function repDataCobrar(){
@@ -7810,7 +7826,7 @@ function repRenderTypeBar(){
   }).join("");
 }
 function repSetType(id){ repType=id; repRender(); }
-function repClear(){ repF={desde:'',hasta:'',mes:'',anio:'',vendedor:'',cliente:'',estVencer:'pendientes',estVendArr:['Aprobada','Finalizado'],vendSearch:'',garEstado:'todas',garMeses:'',mantEstado:'ambos',mantSearch:'',cobrarEstArr:['Aprobada','Finalizado']}; repRender(); }
+function repClear(){ repF={desde:'',hasta:'',mes:'',anio:'',vendedor:'',cliente:'',estVencer:'pendientes',estVendArr:['Aprobada','Finalizado'],vendSearch:'',garEstado:'todas',garMeses:'',mantEstado:'ambos',mantSearch:'',cobrarEstArr:['Aprobada','Finalizado'],vendArr:null,showGanancia:false}; repRender(); }
 function repFld(label,inner){ return `<div style="display:flex;flex-direction:column;gap:3px">${label?`<label style="font-size:9.5px;font-weight:800;color:var(--muted);letter-spacing:.3px;text-transform:uppercase">${label}</label>`:''}${inner}</div>`; }
 function repVendSelect(){
   const vs=repVendedores();
@@ -7865,6 +7881,35 @@ function repCobrarEstChange(){
   repF.cobrarEstArr=arr; repRenderFilters(); repRenderResult();
 }
 function repCobrarEstAll(on){ repF.cobrarEstArr = on?REP_VEND_ESTS.map(e=>e[0]):[]; repRenderFilters(); repRenderResult(); }
+function repVendListDropdownHTML(){
+  const vs=repVendedores();
+  const arr=repF.vendArr;
+  const isChecked=(name)=> arr===null || arr.includes(name);
+  let summary;
+  if(arr===null) summary='Todos';
+  else if(arr.length===0) summary='Ninguno';
+  else if(arr.length===vs.length) summary='Todos';
+  else summary=arr.length+' vendedor(es)';
+  const rows= vs.length ? vs.map(name=>`<label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--navy);cursor:pointer;padding:5px 6px;border-radius:6px"><input type="checkbox" data-vend="${esc(name)}" ${isChecked(name)?'checked':''} onchange="repVendListChange()" style="width:14px;height:14px;accent-color:var(--brand);cursor:pointer">${esc(name)}</label>`).join('') : `<div style="font-size:11.5px;color:var(--muted);padding:5px 6px">Sin vendedores</div>`;
+  return `<div style="position:relative">
+    <button type="button" onclick="repVendListToggleOpen()" style="${REP_INP};min-width:170px;cursor:pointer;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(summary)}</span><span style="color:var(--muted);font-size:10px">▼</span></button>
+    <div id="repVendListPanel" style="display:${repVendListOpen?'block':'none'};position:absolute;z-index:41;top:calc(100% + 4px);left:0;background:#fff;border:1.5px solid var(--line);border-radius:10px;box-shadow:0 10px 28px rgba(12,54,95,.18);padding:7px;min-width:190px;max-height:260px;overflow:auto">
+      ${rows}
+      <div style="display:flex;gap:6px;margin-top:6px;border-top:1px solid var(--line);padding-top:7px;position:sticky;bottom:0;background:#fff">
+        <button type="button" onclick="repVendListAll(true)" style="flex:1;font-size:11px;font-weight:700;padding:6px;border:1.5px solid var(--line);border-radius:7px;background:#fff;color:var(--navy);cursor:pointer">Todos</button>
+        <button type="button" onclick="repVendListAll(false)" style="flex:1;font-size:11px;font-weight:700;padding:6px;border:1.5px solid var(--line);border-radius:7px;background:#fff;color:var(--navy);cursor:pointer">Ninguno</button>
+      </div>
+    </div>
+  </div>`;
+}
+function repVendListToggleOpen(){ repVendListOpen=!repVendListOpen; repRenderFilters(); }
+function repVendListChange(){
+  const els=document.querySelectorAll('#repVendListPanel input[data-vend]');
+  const arr=[]; els.forEach(el=>{ if(el.checked) arr.push(el.getAttribute('data-vend')); });
+  repF.vendArr=arr; repRenderFilters(); repRenderResult();
+}
+function repVendListAll(on){ repF.vendArr = on?null:[]; repRenderFilters(); repRenderResult(); }
+function repToggleGanancia(){ repF.showGanancia=!repF.showGanancia; repRenderFilters(); repRenderResult(); }
 function repOptHTML(val,label,cur){ return `<option value="${val}" ${cur===val?'selected':''}>${label}</option>`; }
 function repRenderFilters(){
   const box=$("repFilters"); if(!box)return;
@@ -7882,10 +7927,11 @@ function repRenderFilters(){
       +repFld('Hasta',`<input id="repHasta" type="date" value="${repF.hasta||''}" onchange="repApply()" style="${REP_INP}">`);
   } else if(repType==='vendedor'){
     f=repFld('Estado',repVendEstadoDropdownHTML())
-      +repFld('Vendedor',repVendSelect())
-      +repFld('Buscar (cliente, proyecto, NIT…)',`<input id="repVendSearch" type="text" placeholder="Cualquier dato del proyecto" value="${esc(repF.vendSearch||'')}" oninput="repApply()" style="${REP_INP};min-width:240px">`)
+      +repFld('Vendedores',repVendListDropdownHTML())
+      +repFld('Buscar (cliente, proyecto, NIT…)',`<input id="repVendSearch" type="text" placeholder="Cualquier dato del proyecto" value="${esc(repF.vendSearch||'')}" oninput="repApply()" style="${REP_INP};min-width:230px">`)
       +repFld('Creada desde',`<input id="repDesde" type="date" value="${repF.desde||''}" onchange="repApply()" style="${REP_INP}">`)
-      +repFld('Hasta',`<input id="repHasta" type="date" value="${repF.hasta||''}" onchange="repApply()" style="${REP_INP}">`);
+      +repFld('Hasta',`<input id="repHasta" type="date" value="${repF.hasta||''}" onchange="repApply()" style="${REP_INP}">`)
+      +repFld('Ganancia',`<button type="button" onclick="repToggleGanancia()" title="Mostrar u ocultar la columna de ganancia bruta (también sale así en el PDF)" style="font-size:11px;font-weight:800;padding:6px 12px;border-radius:8px;border:1.5px solid ${repF.showGanancia?'var(--navy)':'var(--line)'};background:${repF.showGanancia?'var(--navy)':'#fff'};color:${repF.showGanancia?'#fff':'var(--navy)'};cursor:pointer">${repF.showGanancia?'✓ Ganancia bruta':'＋ Ganancia bruta'}</button>`);
   } else if(repType==='mant'){
     f=repFld('Estado',`<select id="repMantEstado" onchange="repApply()" style="${REP_INP}">${repOptHTML('ambos','Finalizados y Archivados',repF.mantEstado)}${repOptHTML('Finalizado','Finalizados',repF.mantEstado)}${repOptHTML('Archivada','Archivados',repF.mantEstado)}</select>`)
       +repFld('Buscar proyecto',`<input id="repMantSearch" type="text" placeholder="Cliente, alias, No., NIS, NIT..." value="${esc(repF.mantSearch||'')}" oninput="repApply()" style="${REP_INP};min-width:230px">`);
