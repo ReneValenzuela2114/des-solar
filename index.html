@@ -7376,7 +7376,7 @@ function repMonthBarHTML(){
   let stepper;
   if(yrOn){
     stepper=`<button type="button" onclick="repYearStep(-1)" title="Año anterior" style="${STEP}">‹</button>
-      <b style="flex:1;font-size:17px;font-weight:800;color:var(--navy);text-align:center">${yr}</b>
+      <div style="${REP_INP};flex:1;min-width:0;text-align:center;font-weight:700">${yr}</div>
       <button type="button" onclick="repYearStep(1)" title="Año siguiente" style="${STEP}">›</button>`;
   } else if(mesOn){
     stepper=`<button type="button" onclick="repMonthStep(-1)" title="Mes anterior" style="${STEP}">‹</button>
