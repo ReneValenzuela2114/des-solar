@@ -1239,8 +1239,7 @@ window.DESAuth = DESAuth;
             <div class="field"><label>Vendedor / Responsable</label>
               <div style="display:flex;gap:6px">
                 <select id="qVendedor" style="flex:1"></select>
-                <button type="button" class="btn ghost sm admin-only" title="Agregar vendedor" onclick="addOption('vendedor')">＋</button>
-                <button type="button" class="btn ghost sm admin-only" title="Gestionar / eliminar vendedores" onclick="manageOptions('vendedor')">🗑</button>
+                <button type="button" class="btn ghost sm admin-only" title="Agregar vendedor (gestión completa en Configuración)" onclick="addOption('vendedor')">＋</button>
               </div></div>
             <div class="field"><label>Estado</label>
               <select id="qEstado"><option>Borrador</option><option>Enviada</option><option>Aprobada</option><option>Finalizado</option><option>Archivada</option><option>Rechazada</option></select></div>
@@ -2333,6 +2332,23 @@ window.DESAuth = DESAuth;
       </div>
     </div>
 
+    <!-- ░░ Sección · Vendedores ░░ -->
+    <div class="acc noadmin-hide">
+      <button type="button" class="acc-head" onclick="toggleAcc(this)">
+        <span class="acc-ico">👤</span><span class="acc-ttl">Vendedores</span><span class="acc-arrow">▸</span>
+      </button>
+      <div class="acc-body">
+        <fieldset>
+          <legend>Lista de vendedores</legend>
+          <p style="font-size:12px;color:var(--muted);margin:0 0 10px">Agrega, renombra o elimina los vendedores que aparecen al crear una cotización. Al <strong>renombrar</strong>, todas las ventas de ese vendedor se actualizan al nuevo nombre. Al <strong>eliminar</strong>, las ventas conservan su nombre y solo se quita de la lista para cotizaciones nuevas.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" class="btn primary sm" onclick="addOption('vendedor')">＋ Agregar vendedor</button>
+            <button type="button" class="btn ghost sm" onclick="manageOptions('vendedor')">🗂 Gestionar (renombrar / eliminar)</button>
+          </div>
+        </fieldset>
+      </div>
+    </div>
+
     <!-- ░░ Sección 2 · Documento PDF (firma + logo + márgenes) ░░ -->
     <div class="acc noadmin-hide">
       <button type="button" class="acc-head" onclick="toggleAcc(this)">
@@ -2842,11 +2858,12 @@ function optUsage(type,val){
   return 0;
 }
 function manageOptions(type){
+  if(type==='vendedor'){ const have=new Set((customOpts.vendedor||[]).map(x=>(x||'').toLowerCase())); (typeof cotizaciones!=='undefined'?cotizaciones:[]).forEach(c=>{ const v=(c.vendedor||'').trim(); if(v && !have.has(v.toLowerCase())){ customOpts.vendedor=(customOpts.vendedor||[]).concat([v]); have.add(v.toLowerCase()); } }); saveOpts(); }
   const list=customOpts[type]||[];
   const rows=list.length?list.map((v,i)=>{
     const u=optUsage(type,v);
     return `<div class="optrow"><span>${esc(v)}${u?` <span class="ouse">· en uso por ${u}</span>`:""}</span>
-      <button class="btn ghost sm" style="color:var(--danger)" onclick="removeOptionByIndex('${type}',${i})">✕ Eliminar</button></div>`;
+      <span style="display:inline-flex;gap:6px"><button class="btn ghost sm" onclick="renameOptionByIndex('${type}',${i})">✎ Renombrar</button><button class="btn ghost sm" style="color:var(--danger)" onclick="removeOptionByIndex('${type}',${i})">✕ Eliminar</button></span></div>`;
   }).join(""):'<div class="hint">Aún no has creado ninguna con el ＋.</div>';
   $("modalBox").innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
@@ -2866,6 +2883,47 @@ function removeOptionByIndex(type,i){
   customOpts[type]=customOpts[type].filter((_,idx)=>idx!==i);
   saveOpts();refreshSelects();manageOptions(type);
   toast("Opción eliminada");
+}
+function optReassign(type, oldVal, newVal){
+  const o=(oldVal||'').toLowerCase(); let count=0;
+  const upd=(arr,key,saveFn)=>{ (arr||[]).forEach(r=>{ if((r[key]||'').toLowerCase()===o){ r[key]=newVal; count++; } }); if(count&&typeof saveFn==='function') saveFn(); };
+  if(type==='vendedor') upd(typeof cotizaciones!=='undefined'?cotizaciones:[],'vendedor',typeof qsave==='function'?qsave:null);
+  else if(type==='categoria') upd(typeof productos!=='undefined'?productos:[],'categoria',typeof psave==='function'?psave:null);
+  else if(type==='unidad') upd(typeof productos!=='undefined'?productos:[],'unidad',typeof psave==='function'?psave:null);
+  else if(type==='proveedor') upd(typeof productos!=='undefined'?productos:[],'proveedor',typeof psave==='function'?psave:null);
+  else if(type==='trabajoCat') upd(typeof trabajos!=='undefined'?trabajos:[],'categoria',typeof tsave==='function'?tsave:null);
+  else if(type==='etapa') upd(typeof clientes!=='undefined'?clientes:[],'etapa',typeof save==='function'?save:null);
+  return count;
+}
+function renameOptionByIndex(type,i){
+  const old=(customOpts[type]||[])[i]; if(old==null) return;
+  const lbl=(OPT_LABELS[type]||type);
+  $("modalBox").innerHTML=`
+    <h2 style="margin:0 0 14px">Renombrar ${esc(old)}</h2>
+    <input id="renInput" value="${esc(old)}" style="width:100%">
+    <div class="actions" style="margin-top:16px">
+      <button class="btn primary" id="renOk">Guardar</button>
+      <button class="btn ghost" id="renCancel">Cancelar</button>
+    </div>`;
+  $("modal").classList.add("show");
+  const inp=$("renInput"); inp.focus(); inp.select();
+  const back=()=>manageOptions(type);
+  $("renCancel").onclick=back;
+  $("renOk").onclick=()=>{
+    const nuevo=(inp.value||'').trim();
+    if(!nuevo){ toast('El nombre no puede quedar vacío',true); return; }
+    if(nuevo===old){ back(); return; }
+    if(optsFor(type).some(x=>x.toLowerCase()===nuevo.toLowerCase())){ toast('Ya existe una opción con ese nombre',true); return; }
+    recordUndo('renombrar '+lbl);
+    customOpts[type]=customOpts[type].map((v,idx)=>idx===i?nuevo:v);
+    const n=optReassign(type, old, nuevo);
+    saveOpts(); refreshSelects();
+    try{ if(typeof vrender==='function') vrender(); }catch(e){}
+    try{ if(typeof qrender==='function') qrender(); }catch(e){}
+    manageOptions(type);
+    toast('Renombrado ✓'+(n?` · ${n} registro(s) actualizados`:''));
+  };
+  inp.onkeydown=e=>{ if(e.key==='Enter'){e.preventDefault();$("renOk").click();} if(e.key==='Escape') back(); };
 }
 function pNextCode(){
   const n=productos.length+1;
