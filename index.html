@@ -2429,7 +2429,7 @@ window.DESAuth = DESAuth;
         <p style="font-size:12px;color:var(--muted);margin:0 0 11px;line-height:1.55">Guarda <strong>TODA</strong> la info en un solo archivo: clientes, cotizaciones, catálogo, trabajos, proyectos, finanzas, comprobantes, trámites, diagramas, expedientes y ajustes. Si no tienes una carpeta conectada, al respaldar o restaurar se te pedirá elegir una.</p>
         <div id="bkFolderStatus" style="font-size:12px;background:var(--soft);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:12px;line-height:1.5"></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <button class="btn primary sm" onclick="guardarRespaldo()">⬇ Respaldar</button>
+          <button class="btn primary sm" onclick="guardarRespaldo()">⬇ Respaldar base de datos (D1)</button>
           <button class="btn ghost sm" onclick="restaurarRespaldo()">⬆ Restaurar respaldo</button>
           <input type="file" id="importarTodoFile" accept=".json" style="display:none" onchange="importarTodo(this)">
         </div>
@@ -2446,6 +2446,10 @@ window.DESAuth = DESAuth;
         <p style="font-size:12px;color:var(--muted);margin:0 0 11px;line-height:1.55">Revisa todos los archivos guardados (recibos, DPI, cotizaciones, comprobantes, biblioteca…) y detecta cuáles se perdieron de la nube. Los <strong>perdidos</strong> son referencias cuyo archivo ya no existe en R2: hay que volver a subirlos.</p>
         <button class="btn primary sm" id="r2DiagBtn" onclick="r2Diagnostico()">🔎 Revisar archivos en la nube</button>
         <div id="r2DiagOut" style="margin-top:12px;font-size:12px;line-height:1.5"></div>
+        <hr style="border:none;border-top:1px dashed var(--line);margin:16px 0 12px">
+        <p style="font-size:12px;color:var(--muted);margin:0 0 10px;line-height:1.55">Guarda una <strong>copia de todos los archivos (R2)</strong> en tu carpeta conectada (OneDrive). Es <strong>incremental</strong>: solo baja los archivos nuevos, no copia todo otra vez. Quedan en <strong>Respaldos / DES-Archivos-R2</strong>. (Desde la computadora con Chrome o Edge.)</p>
+        <button class="btn primary sm" onclick="respaldarR2Carpeta()">💾 Respaldar archivos (R2) a mi carpeta</button>
+        <div id="respR2Estado" style="margin-top:12px;font-size:12px;line-height:1.5;color:var(--navy)"></div>
       </div>
     </div>
 
@@ -7279,12 +7283,66 @@ async function respaldarNube(){
     toast("☁ Respaldo guardado en la nube ✓");
   }catch(e){ toast("No se pudo guardar en la nube: "+((e&&e.message)||e),true); }
 }
+/* ---- Lista de todos los archivos (r2Keys) que el sistema referencia ---- */
+function _r2AllRefs(){
+  const refs=[]; const seen=new Set();
+  const add=(key,label)=>{ if(key && !seen.has(String(key))){ seen.add(String(key)); refs.push({key:String(key),label:label||""}); } };
+  (typeof bandeja!=="undefined"?bandeja:[]).forEach(it=>{ if(it&&it.r2Key) add(it.r2Key, "Pago en bandeja · "+(it.name||"")); });
+  (typeof comprobantes!=="undefined"?comprobantes:[]).forEach(c=>{ if(c&&c.r2Key) add(c.r2Key, "Comprobante · "+(c.nombre||"")); });
+  (typeof finanzas!=="undefined"?finanzas:[]).forEach(m=>{ const c=m&&m.comprobante; if(c&&c.r2Key) add(c.r2Key, "Finanzas · "+(c.name||"")); });
+  (typeof ventas!=="undefined"?ventas:[]).forEach(v=>{ (v&&v.movimientos?v.movimientos:[]).forEach(m=>{ const c=m&&m.comprobante; if(c&&c.r2Key) add(c.r2Key, "Proyecto · pago"); }); });
+  (typeof cotizaciones!=="undefined"?cotizaciones:[]).forEach(c=>{ const p=c&&c.archivoPdf; if(p&&p.r2Key) add(p.r2Key, "Cotización "+(c.numero||"")+" · PDF"); });
+  (typeof tramites!=="undefined"?tramites:[]).forEach(t=>{ const d=t&&t.docs; if(d) Object.keys(d).forEach(slot=>{ const o=d[slot]; if(o&&o.r2Key) add(o.r2Key, "Trámite · "+slot); }); });
+  (typeof productos!=="undefined"?productos:[]).forEach(p=>{ (p&&p.archivos?p.archivos:[]).forEach(f=>{ if(f&&f.r2Key) add(f.r2Key, "Producto · "+(p.nombre||p.codigo||"")); }); });
+  (typeof archivos!=="undefined"?archivos:[]).forEach(a=>{ if(a&&a.r2Key) add(a.r2Key, "Biblioteca · "+(a.nombre||"")); });
+  try{ const tpl=(typeof tramTplKey==="function")?tramTplKey():""; if(tpl) add(tpl, "Plantilla del formulario (Excel)"); }catch(e){}
+  return refs;
+}
+/* ---- Respaldo INCREMENTAL de los archivos de R2 a la carpeta conectada (solo baja lo que falta) ---- */
+async function respaldarR2Carpeta(){
+  const out=$("respR2Estado"); const setOut=t=>{ if(out) out.textContent=t; };
+  if(!(typeof r2On==="function" && r2On())){ setOut("La nube (R2) no está configurada o no hay sesión activa."); toast("R2 no está disponible (revisa tu sesión)",true); return; }
+  if(!(window.projConnected && window.projConnected())){
+    if(window.projConnect){ const ok=await window.projConnect(); if(!ok){ setOut("No se conectó ninguna carpeta."); return; } }
+    else { toast("Conecta una carpeta primero (📁)",true); return; }
+  }
+  const dir=window.projDirHandle && window.projDirHandle();
+  if(!dir){ setOut("No hay carpeta conectada."); toast("No hay carpeta conectada",true); return; }
+  setOut("Preparando…");
+  try{
+    const resp=await dir.getDirectoryHandle("Respaldos",{create:true});
+    const sub=await resp.getDirectoryHandle("DES-Archivos-R2",{create:true});
+    const have=new Set();
+    try{ for await (const name of sub.keys()){ have.add(name); } }catch(e){}
+    const refs=_r2AllRefs();
+    if(!refs.length){ setOut("No hay archivos en la nube que respaldar."); toast("Nada que respaldar"); return; }
+    const sani=k=>String(k).replace(/[\/\\:*?"<>|]+/g,'_');
+    let copied=0, skipped=0, failed=0; const manifest=[];
+    for(let i=0;i<refs.length;i++){
+      const key=refs[i].key, fname=sani(key);
+      manifest.push({archivo:fname, key, descripcion:refs[i].label});
+      if(have.has(fname)){ skipped++; continue; }
+      setOut(`Copiando archivos nuevos… ${copied+1} (revisando ${i+1}/${refs.length})`);
+      try{
+        const r=await fetch(r2Url(key));
+        if(!r.ok) throw new Error("HTTP "+r.status);
+        const b=await r.blob();
+        const fh=await sub.getFileHandle(fname,{create:true});
+        const w=await fh.createWritable(); await w.write(b); await w.close();
+        copied++;
+      }catch(e){ failed++; }
+    }
+    try{ const fh=await sub.getFileHandle("_INDICE_R2.json",{create:true}); const w=await fh.createWritable(); await w.write(new Blob([JSON.stringify(manifest,null,2)],{type:"application/json"})); await w.close(); }catch(e){}
+    setOut(`✓ Listo en Respaldos / DES-Archivos-R2 · nuevos: ${copied} · ya estaban: ${skipped}${failed?` · con error: ${failed}`:""}.`);
+    toast(`Respaldo R2 listo ✓ (${copied} nuevo(s))`, failed>0);
+  }catch(e){ setOut("Error: "+((e&&e.message)||e)); toast("Error al respaldar R2: "+((e&&e.message)||e),true); }
+}
 async function exportarTodo(){
   const data=_backupData();
   // Marca de tiempo con fecha y hora para no sobreescribir respaldos del mismo día
   const now=new Date();
   const stamp=now.toISOString().slice(0,16).replace("T","_").replace(":","");
-  const fname=`respaldo_DES_${stamp}.json`;
+  const fname=`DES_BaseDatos-D1_${stamp}.json`;
   const json=JSON.stringify(data,null,2);
   const blob=new Blob([json],{type:"application/json"});
 
