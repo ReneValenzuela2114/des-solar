@@ -1687,7 +1687,7 @@ window.DESAuth = DESAuth;
   <!-- Historial de cierres -->
   <div class="card" style="padding:14px 16px;margin-top:14px">
     <h3 style="margin:0 0 4px;font-size:14px;font-weight:800;color:var(--navy)">Cierres guardados</h3>
-    <div style="font-size:11.5px;color:var(--muted);margin-bottom:10px">Cada cierre guarda el resumen del período (Mantenimiento, Impuestos, Otros y total en banco).</div>
+    <div style="font-size:11.5px;color:var(--muted);margin-bottom:10px">Cada cierre guarda el resumen del período (Mantenimiento, Impuestos, Otros, total en banco y proyectos por liberar).</div>
     <div id="finCierres"></div>
   </div>
 </div>
@@ -8596,6 +8596,7 @@ function finHacerCierre(){
   cierres.push({
     id:uid(), ts, fecha:hoy, etiqueta:etiqueta||hoy,
     saldos:{...saldos}, banco:banco.total, bancoProy:banco.proy, bancoCats:banco.cats,
+    proyectos:finProyectosSnapshot(),
     movimientos:JSON.parse(JSON.stringify(finanzas)),
     prevUltimoCierre:finUltimoCierre
   });
@@ -8639,14 +8640,17 @@ function finPrintCierre(id){
   if(!ci){toast("Cierre no encontrado",true);return;}
   printFinResumen(ci);
 }
-function finBuildResumenData(){
-  const saldos={}; FIN_CATS.forEach(([k])=>{saldos[k]=finCatBalance(k);});
-  const banco=finBancoTotal();
-  const proyectos=cotizaciones
+function finProyectosSnapshot(){
+  return cotizaciones
     .filter(c=>(c.estado==='Aprobada'||c.estado==='Finalizado')&&!c.fondosLiberados)
     .map(c=>({nombre:c.clienteNombre||'(sin cliente)',numero:c.numero||'',alias:c.alias||'',saldo:finSaldoProyecto(c.id)}))
     .filter(p=>Math.abs(p.saldo)>=0.005)
     .sort((a,b)=>b.saldo-a.saldo);
+}
+function finBuildResumenData(){
+  const saldos={}; FIN_CATS.forEach(([k])=>{saldos[k]=finCatBalance(k);});
+  const banco=finBancoTotal();
+  const proyectos=finProyectosSnapshot();
   return {
     parcial:true, etiqueta:'Período actual', fecha:todayISO(),
     saldos, banco:banco.total, bancoProy:banco.proy, bancoCats:banco.cats,
@@ -8685,12 +8689,6 @@ function printFinResumen(data){
 
   // Tarjetas resumen (specs)
   const specsHTML=`
-  <div class="specs">
-    <div class="spec"><div class="k">En proyectos por liberar</div><div class="v">${fQ(data.bancoProy||0)}</div></div>
-    <div class="spec"><div class="k">En categorías</div><div class="v">${fQ(data.bancoCats!=null?data.bancoCats:saldoCats)}</div></div>
-    <div class="spec"><div class="k">Entradas del período</div><div class="v" style="color:var(--green)">${fQ(totEnt)}</div></div>
-    <div class="spec"><div class="k">Salidas del período</div><div class="v" style="color:#c0392b">${fQ(totSal)}</div></div>
-  </div>
   <div class="saving">
     <div class="lbl">Total en banco<small>Fondos de proyectos por liberar + saldo de las 3 categorías</small></div>
     <div class="amt">${fQ(data.banco||0)}</div>
@@ -8732,7 +8730,11 @@ function printFinResumen(data){
     <table class="mv">
       <thead><tr><th>Proyecto</th><th>No.</th><th class="num">Saldo disponible</th></tr></thead>
       <tbody>${proyectos.map(p=>`<tr><td>${esc(p.nombre)}${p.alias?' · '+esc(p.alias):''}</td><td class="dt">${esc(p.numero||"—")}</td><td class="num pos">${fQ(p.saldo)}</td></tr>`).join("")}</tbody>
-    </table>`:"";
+    </table>`:((data.bancoProy||0)>0.005?`
+    <div class="note">
+      <h4>Proyectos por liberar</h4>
+      <p>Este cierre incluye <b>${fQ(data.bancoProy||0)}</b> en proyectos por liberar, pero el detalle por proyecto no quedo guardado (cierre hecho antes de esta actualizacion).</p>
+    </div>`:"");
 
   // Nota de pendientes
   const pendHTML=(nPend>0)?`
@@ -8878,11 +8880,12 @@ function printFinResumen(data){
 
   <div class="totwrap">
     <div class="totals">
-      <div class="r"><span class="lab">Total entradas (Listo)</span><span style="color:var(--green);font-weight:700">${fQ(totEnt)}</span></div>
-      <div class="r"><span class="lab">Total salidas (Listo)</span><span style="color:#c0392b;font-weight:700">${fQ(totSal)}</span></div>
-      <div class="r"><span class="lab">Saldo en categorías</span><span style="font-weight:700">${fQ(saldoCats)}</span></div>
+      <div class="r"><span class="lab">Entradas del período (Listo)</span><span style="color:var(--green);font-weight:700">${fQ(totEnt)}</span></div>
+      <div class="r"><span class="lab">Salidas del período (Listo)</span><span style="color:#c0392b;font-weight:700">&minus; ${fQ(totSal)}</span></div>
+      <div class="r" style="border-top:1.5px solid var(--line)"><span class="lab" style="font-weight:800;color:var(--navy)">= Saldo en categorías</span><span style="font-weight:800;color:${(data.bancoCats!=null?data.bancoCats:saldoCats)>=0?'var(--navy)':'#c0392b'}">${fQ(data.bancoCats!=null?data.bancoCats:saldoCats)}</span></div>
+      <div class="r"><span class="lab">+ Proyectos por liberar</span><span style="font-weight:700;color:var(--navy)">${fQ(data.bancoProy||0)}</span></div>
       <div class="grand">
-        <span class="lab">TOTAL EN BANCO</span>
+        <span class="lab">TOTAL EN BANCO<small style="display:block;font-weight:500;font-size:9.5px;opacity:.8;letter-spacing:.3px;margin-top:2px">Saldo en categorías + proyectos por liberar</small></span>
         <span class="val">${fQ(data.banco||0)}</span>
       </div>
     </div>
