@@ -2453,6 +2453,17 @@ window.DESAuth = DESAuth;
       </div>
     </div>
 
+    <!-- ░░ Sección · Vista y filtros ░░ -->
+    <div class="acc">
+      <button type="button" class="acc-head" onclick="toggleAcc(this)">
+        <span class="acc-ico">🧭</span><span class="acc-ttl">Vista y filtros</span><span class="acc-arrow">▸</span>
+      </button>
+      <div class="acc-body">
+        <p style="font-size:12px;color:var(--muted);margin:0 0 11px;line-height:1.55">La app recuerda cómo dejaste la vista aunque cierres el navegador: pestaña activa y filtros de <strong>Proyectos</strong>, <strong>Ventas</strong> y <strong>Reportes</strong>. Con este botón todo regresa a como se ve al abrir por primera vez. <strong>No borra ningún dato.</strong></p>
+        <button class="btn ghost sm" onclick="uiPrefsRestablecer()">🧭 Restablecer vista por defecto</button>
+      </div>
+    </div>
+
     <div class="actions" style="margin-top:18px">
       <button class="btn primary admin-only noadmin-hide" onclick="saveSettings()">💾 Guardar ajustes</button>
       <button class="btn ghost" onclick="closeSettings()">Cancelar</button>
@@ -2687,17 +2698,48 @@ document.querySelectorAll('.tab[data-tab]').forEach(t=>{
   t.addEventListener('click',()=>{
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
     t.classList.add('active');
-    curTab=t.dataset.tab; applyTabs(); if(curTab==="ventas")vrender(); if(curTab==="finanzas"&&typeof finRender==="function")finRender(); if(curTab==="reportes"&&typeof repRender==="function")repRender(); if(curTab==="archivos"&&typeof archInit==="function")archInit(); if(curTab==="tramite"&&typeof tramExpListRender==="function")tramExpListRender();
+    curTab=t.dataset.tab; uiPrefsSave({tab:curTab}); applyTabs(); if(curTab==="ventas")vrender(); if(curTab==="finanzas"&&typeof finRender==="function")finRender(); if(curTab==="reportes"&&typeof repRender==="function")repRender(); if(curTab==="archivos"&&typeof archInit==="function")archInit(); if(curTab==="tramite"&&typeof tramExpListRender==="function")tramExpListRender();
   });
 });
 document.querySelectorAll('.subtab[data-sub]').forEach(s=>{
   s.addEventListener('click',()=>{
     document.querySelectorAll('.subtab').forEach(x=>x.classList.remove('active'));
     s.classList.add('active');
-    curSub=s.dataset.sub; applyTabs();
+    curSub=s.dataset.sub; uiPrefsSave({sub:curSub}); applyTabs();
   });
 });
 applyTabs();
+
+/* ===== PREFERENCIAS DE VISTA (persisten al cerrar el navegador) =====
+   Guarda pestana activa y filtros en localStorage (des_ui_prefs_v1).
+   "Restablecer vista" en Ajustes borra la clave y recarga. */
+const UIPREFS_KEY="des_ui_prefs_v1";
+var uiPrefsReady=false;
+function uiPrefsLoad(){try{return JSON.parse(localStorage.getItem(UIPREFS_KEY))||{};}catch(e){return{};}}
+function uiPrefsSave(patch){
+  if(!uiPrefsReady)return;
+  try{const pr=uiPrefsLoad();Object.assign(pr,patch);localStorage.setItem(UIPREFS_KEY,JSON.stringify(pr));}catch(e){}
+}
+function uiPrefsSaveVEstados(){
+  uiPrefsSave({vEstados:[...document.querySelectorAll('#vFilterEstados input[type=checkbox]')].filter(c=>c.checked).map(c=>c.value)});
+}
+(function(){ const b=document.getElementById("vFilterEstados"); if(b) b.addEventListener("change",uiPrefsSaveVEstados); })();
+function uiPrefsRestablecer(){
+  if(!confirm("Se restablece la vista a como se ve al abrir por primera vez:\n\n- Pestana inicial (Clientes)\n- Filtros de estado en Proyectos y Ventas\n- Filtros de Reportes\n\nNo se borra ningun dato. Continuar?"))return;
+  try{localStorage.removeItem(UIPREFS_KEY);}catch(e){}
+  location.reload();
+}
+setTimeout(function(){
+  try{
+    const pr=uiPrefsLoad();
+    if(Array.isArray(pr.vEstados)) document.querySelectorAll('#vFilterEstados input[type=checkbox]').forEach(c=>{c.checked=pr.vEstados.includes(c.value);});
+    if(pr.qfiltro!=null && $("qfiltro")){ $("qfiltro").value=pr.qfiltro; if(typeof qrender==="function")qrender(); }
+    if(pr.rep && typeof repF!=="undefined"){ if(pr.rep.type)repType=pr.rep.type; if(pr.rep.f)Object.assign(repF,pr.rep.f); }
+    if(pr.sub){ const sb=document.querySelector('.subtab[data-sub="'+pr.sub+'"]'); if(sb) sb.click(); }
+    if(pr.tab && pr.tab!==curTab){ const tb=document.querySelector('.tab[data-tab="'+pr.tab+'"]'); if(tb) tb.click(); }
+  }catch(e){}
+  uiPrefsReady=true;
+},0);
 
 /* ===== ROLES (preparado para usuarios; por defecto admin) =====
    Cuando exista el login, llamar desSetRol('admin'|'socio'|'instalador').
@@ -4275,7 +4317,7 @@ function qrender(){
     </div>`).join("");
 }
 $("qsearch").addEventListener("input",qrender);
-$("qfiltro").addEventListener("change",qrender);
+$("qfiltro").addEventListener("change",()=>{uiPrefsSave({qfiltro:$("qfiltro").value});qrender();});
 
 // ---- Detalle ----
 function qdetail(id){
@@ -5674,6 +5716,7 @@ let vCuentasVisible=true;
 
 function vSelEstados(todos){
   document.querySelectorAll('#vFilterEstados input[type=checkbox]').forEach(c=>c.checked=!!todos);
+  uiPrefsSaveVEstados();
   vrender();
 }
 function vToggleEstadoMenu(e){
@@ -8109,6 +8152,7 @@ function repTableHTML(d){
 }
 function repRenderResult(){
   const box=$("repResult"); if(!box)return;
+  uiPrefsSave({rep:{type:repType,f:repF}});
   if(repType==='mant'){ if(repMantOrder===null) repMantSortNow(); box.innerHTML=repMantTableHTML(); return; }
   box.innerHTML=repTableHTML(repData());
 }
