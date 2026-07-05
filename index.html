@@ -511,6 +511,49 @@
     #vAddForm .vmov-cuotarow > div[style*="flex"]{width:100%}
     #vAddForm .vmov-cuotarow > div[style*="flex"] .btn{flex:1}
   }
+
+  /* ===================================================================
+     MÓVIL · PROYECTOS → MOVIMIENTOS — acabado "tarjeta" legible.
+     La tabla de movimientos deja de deslizarse de lado y cada fila se ve
+     como una tarjeta (Etiqueta: valor), igual que en Finanzas.
+     Solo aplica en teléfono (≤768px). No cambia nada en escritorio,
+     ni la lógica: solo es presentación (usa el orden de columnas).
+     =================================================================== */
+  @media(max-width:768px){
+    /* Mata el scroll horizontal del contenedor de la tabla */
+    #vMovBody > div[style*="overflow"]{overflow-x:visible !important}
+    #vMovBody .vled,
+    #vMovBody .vled tbody,
+    #vMovBody .vled tr,
+    #vMovBody .vled td{display:block;width:100%}
+    #vMovBody .vled thead{display:none}
+    #vMovBody .vled tr{border:1.5px solid var(--line);border-radius:13px;padding:11px 14px;margin-bottom:11px;background:#fff;box-shadow:0 2px 8px rgba(12,54,95,.07)}
+    #vMovBody .vled tr:hover td{background:transparent}
+    #vMovBody .vled td{border:none !important;padding:5px 0 !important;text-align:right !important;font-size:13.5px !important;display:flex;justify-content:space-between;gap:14px;align-items:baseline;white-space:normal !important;word-break:break-word}
+    /* Oculta la columna "#" y las celdas vacías (Entrada/Salida en 0) */
+    #vMovBody .vled td:nth-of-type(1){display:none}
+    #vMovBody .vled td:empty{display:none}
+    /* Etiqueta gris a la izquierda de cada dato */
+    #vMovBody .vled td::before{font-weight:800;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;align-self:center;text-align:left}
+    #vMovBody .vled td:nth-of-type(2)::before{content:"Fecha"}
+    #vMovBody .vled td:nth-of-type(3)::before{content:"Concepto"}
+    #vMovBody .vled td:nth-of-type(4)::before{content:"Entrada"}
+    #vMovBody .vled td:nth-of-type(5)::before{content:"Salida"}
+    #vMovBody .vled td:nth-of-type(6)::before{content:"Saldo"}
+    /* Última celda (estado + acciones) = pie de la tarjeta */
+    #vMovBody .vled td:nth-of-type(7){justify-content:flex-end;gap:7px;flex-wrap:wrap;padding-top:10px !important;margin-top:6px;border-top:1px dashed var(--line) !important}
+    #vMovBody .vled td:nth-of-type(7)::before{content:none}
+    /* Botones de acción cómodos para el dedo */
+    #vMovBody .vled td:nth-of-type(7) .lx{font-size:16px;padding:4px 7px;line-height:1}
+    /* Fila vacía "Sin movimientos aún" ocupa toda la tarjeta, centrada */
+    #vMovBody .vled td[colspan]{justify-content:center;text-align:center !important}
+    #vMovBody .vled td[colspan]::before{content:none}
+
+    /* Barra de búsqueda/filtros de Proyectos: buscador a todo el ancho */
+    #vSearch{flex:1 1 100% !important;width:100% !important}
+    /* Menú desplegable "Estados": que no se salga por la derecha */
+    .vdrop-menu{left:auto;right:0;max-width:calc(100vw - 28px)}
+  }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
