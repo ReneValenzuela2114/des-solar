@@ -1224,7 +1224,11 @@ window.DESAuth = DESAuth;
             <div id="qClienteChosen" style="margin-top:8px;display:none"></div>
           </div>
           <div class="row m-1col" style="grid-template-columns:1fr 1fr 1fr">
-            <div class="field"><label>NIS / Correlativo</label><input id="qNis" placeholder="Ej. NIS contador o correlativo"></div>
+            <div class="field"><label>NIS / Correlativo</label>
+              <div style="display:flex;gap:6px">
+                <select id="qNisTipo" title="Etiqueta que saldrá en el PDF" style="max-width:130px"><option value="NIS">NIS</option><option value="Correlativo">Correlativo</option></select>
+                <input id="qNis" placeholder="Ej. NIS contador o correlativo" style="flex:1">
+              </div></div>
             <div class="field"><label>Fecha</label><input id="qFecha" type="date"></div>
             <div class="field"><label class="lblauto">No. de cotización <span class="at">Auto</span></label><input id="qNumero" class="auto" readonly tabindex="-1" placeholder="Automático"></div>
           </div>
@@ -1385,7 +1389,11 @@ window.DESAuth = DESAuth;
             <div id="aClienteChosen" style="margin-top:8px;display:none"></div>
           </div>
           <div class="row" style="grid-template-columns:1fr 1fr 1fr">
-            <div class="field"><label>NIS / Correlativo</label><input id="aNis" placeholder="Ej. NIS contador"></div>
+            <div class="field"><label>NIS / Correlativo</label>
+              <div style="display:flex;gap:6px">
+                <select id="aNisTipo" title="Etiqueta que saldrá en el PDF" style="max-width:130px"><option value="NIS">NIS</option><option value="Correlativo">Correlativo</option></select>
+                <input id="aNis" placeholder="Ej. NIS contador" style="flex:1">
+              </div></div>
             <div class="field"><label>Fecha <span class="req">•</span></label><input id="aFecha" type="date"></div>
             <div class="field"><label class="lblauto">No. de cotización</label><input id="aNumero" placeholder="Ej. COT-2024-001"></div>
           </div>
@@ -3690,6 +3698,7 @@ function archiveEdit(c){
   $("aAlias").value=c.alias||"";
   $("aMaps").value=c.maps||"";
   $("aNis").value=c.nis||"";
+  $("aNisTipo").value=c.nisTipo||"NIS";
   $("aFecha").value=c.fecha||todayISO();
   $("aNumero").value=c.numero||"";
   $("aVendedor").value=c.vendedor||"";
@@ -3735,6 +3744,7 @@ function archiveSubmit(e){
     clienteCode:aSelCliente?aSelCliente.code:"",
     alias:$("aAlias").value.trim(),
     nis:$("aNis").value.trim(),
+    nisTipo:$("aNisTipo").value||"NIS",
     maps:$("aMaps").value.trim(),
     fecha:$("aFecha").value,
     numero:$("aNumero").value.trim(),
@@ -4211,6 +4221,7 @@ function buildCotData(){
     clienteCode:qSelCliente?qSelCliente.code:"",
     alias:$("qAlias").value.trim(),
     nis:$("qNis").value.trim(),
+    nisTipo:$("qNisTipo").value||"NIS",
     maps:$("qMaps").value.trim(),
     fecha:$("qFecha").value||todayISO(),
     validez:$("qValidez").value.trim(),
@@ -4376,7 +4387,7 @@ function qedit(id){
     }
   } else { qSelCliente=null; }
   renderChosenCliente();
-  $("qAlias").value=c.alias||"";$("qNis").value=c.nis||"";$("qMaps").value=c.maps||"";$("qNumero").value=c.numero||"";$("qFecha").value=c.fecha||todayISO();
+  $("qAlias").value=c.alias||"";$("qNis").value=c.nis||"";$("qNisTipo").value=c.nisTipo||"NIS";$("qMaps").value=c.maps||"";$("qNumero").value=c.numero||"";$("qFecha").value=c.fecha||todayISO();
   $("qValidez").value=c.validez||COT_TEXTS.validez;$("qEstado").value=c.estado||"Borrador";
   fillSelect("qVendedor","vendedor",{includeBlank:optsFor("vendedor").length===0,blankLabel:"— Crea uno con ＋ —",extra:[c.vendedor]});
   $("qVendedor").value=c.vendedor||"";
@@ -4401,6 +4412,7 @@ function qduplicar(id){
   renderChosenCliente();
   $("qClienteSearch").placeholder="🔍 Elige o escribe un cliente para esta copia...";
   $("qNis").value=c.nis||"";
+  $("qNisTipo").value=c.nisTipo||"NIS";
   $("qMaps").value=c.maps||"";
   $("qNumero").value="";
   $("qFecha").value=todayISO();
@@ -4666,7 +4678,7 @@ function printCot(c){
       <div class="who">${esc(c.clienteNombre||"")}</div>
       ${cliLoc?`<div class="sub">${esc(cliLoc)}</div>`:""}
     </div>
-    ${c.nis?`<div class="nis">NIS<b>${esc(c.nis)}</b></div>`:""}
+    ${c.nis?`<div class="nis">${esc(c.nisTipo||"NIS")}<b>${esc(c.nis)}</b></div>`:""}
   </div>
   <div class="greet">${esc(saludo)}</div>
 
