@@ -3,6 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0c365f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DES">
+<meta name="application-name" content="DES">
 <title>DES · Gestor de Clientes</title>
 <style>
   /* ===== PALETA DES — MISMA BASE QUE LA COTIZACIÓN ===== */
@@ -5133,10 +5143,12 @@ function renderHeaderLogo(){
     el.style.width="auto";
     el.style.height="auto";
   }else{
-    el.innerHTML="DES";
-    el.style.background="";
-    el.style.border="";
-    el.style.boxShadow="";
+    el.innerHTML=`<img src="assets/icon.svg" alt="DES" style="height:${h}px;width:${h}px;display:block">`;
+    el.style.background="transparent";
+    el.style.border="none";
+    el.style.boxShadow="none";
+    el.style.width="auto";
+    el.style.height="auto";
   }
 }
 renderHeaderLogo();
@@ -11307,5 +11319,13 @@ function archCatDelete(name){
 })();
 </script>
 
+<script>
+/* Registro del Service Worker (PWA instalable) */
+if('serviceWorker' in navigator){
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('service-worker.js').catch(function(){});
+  });
+}
+</script>
 </body>
 </html>
