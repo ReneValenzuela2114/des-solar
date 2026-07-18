@@ -9,7 +9,7 @@
    borra las cachEs viejas y toma control de inmediato (skipWaiting + claim).
    ========================================================================== */
 
-const CACHE_VERSION = 'des-v1';
+const CACHE_VERSION = 'des-v12';
 const CACHE_NAME = 'des-shell-' + CACHE_VERSION;
 
 /* Cascara minima que se precachea en la instalacion. Solo estaticos propios:
