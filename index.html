@@ -37,9 +37,27 @@
   .brand h1{font-size:16px;margin:0;letter-spacing:.3px;color:var(--navy);font-weight:800}
   .brand p{margin:0;font-size:11.5px;color:var(--muted)}
   .tabs{margin-left:auto;display:flex;gap:0;flex-wrap:wrap}
-  .tab{padding:0 16px;height:62px;display:flex;align-items:center;color:var(--muted);cursor:pointer;font-size:13px;font-weight:700;letter-spacing:.2px;border-bottom:3px solid transparent;margin-bottom:-3px;transition:color .15s,border-color .15s;white-space:nowrap}
+  .tab{padding:0 16px;height:62px;display:flex;align-items:center;gap:8px;color:var(--muted);cursor:pointer;font-size:13px;font-weight:700;letter-spacing:.2px;border-bottom:3px solid transparent;margin-bottom:-3px;transition:color .15s,border-color .15s,background .15s;white-space:nowrap}
+  .tab svg{flex-shrink:0;opacity:.85}
   .tab:hover{color:var(--navy)}
   .tab.active{color:var(--navy);border-bottom-color:var(--gold)}
+  .hdr-brandrow{display:flex;align-items:center;gap:16px;min-width:0}
+  /* ── Sidebar de navegación (solo escritorio; en móvil el header queda como siempre) ── */
+  @media(min-width:901px){
+    body{padding-left:232px}
+    header{position:fixed;top:0;left:0;bottom:0;width:232px;flex-direction:column;align-items:stretch;flex-wrap:nowrap;gap:0;padding:18px 12px 14px;min-height:0;overflow-y:auto;background:linear-gradient(180deg,var(--navy) 0%,#081f36 100%);border-top:none;border-bottom:none;border-right:1.5px solid rgba(224,146,42,.30);box-shadow:2px 0 18px rgba(8,31,54,.28);backdrop-filter:none;-webkit-backdrop-filter:none}
+    .hdr-brandrow{gap:10px;padding:2px 6px 15px;border-bottom:1px solid rgba(255,255,255,.12);margin-bottom:12px}
+    .brand h1{color:#fff;font-size:14px;line-height:1.25;white-space:normal}
+    .brand p{color:#9fb4cb;font-size:9.5px}
+    .tabs{margin-left:0;flex-direction:column;flex-wrap:nowrap;gap:3px;flex:1;align-content:flex-start}
+    .tab{height:auto;padding:10px 12px;margin-bottom:0;border-bottom:none;border-radius:9px;color:#c7d6e7;font-size:13px}
+    .tab:hover{color:#fff;background:rgba(255,255,255,.07)}
+    .tab.active{color:#fff;background:linear-gradient(135deg,var(--blue),var(--navy2));border-bottom-color:transparent;box-shadow:0 3px 10px rgba(0,0,0,.28)}
+    .tab.active svg{opacity:1}
+    .btn-settings{margin:12px 4px 0;align-self:stretch;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);color:#dfe9f5;border-radius:10px;padding:9px 12px}
+    .btn-settings:hover{background:rgba(255,255,255,.16);color:#fff}
+    #desSessBar{margin-left:0 !important;margin-top:10px}
+  }
   .tab.soon{opacity:.28;cursor:not-allowed}
   .btn-settings{margin-left:8px;background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:7px 12px;font-size:16px;cursor:pointer;color:var(--muted);line-height:1;transition:background .15s,color .15s}
   .btn-settings:hover{background:var(--line);color:var(--navy)}
@@ -189,6 +207,8 @@
   .modal{position:fixed;inset:0;background:rgba(8,28,52,.65);display:none;align-items:center;justify-content:center;padding:20px;z-index:50;backdrop-filter:blur(2px)}
   .modal.show{display:flex}
   .modal .box{background:var(--panel);border:1px solid var(--line);border-radius:16px;max-width:640px;width:100%;max-height:88vh;overflow:auto;padding:24px;box-shadow:var(--sh-md)}
+  @keyframes cliShake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(3px)}30%,50%,70%{transform:translateX(-7px)}40%,60%{transform:translateX(7px)}}
+  .box.shake{animation:cliShake .5s cubic-bezier(.36,.07,.19,.97)}
   .kv{display:grid;grid-template-columns:150px 1fr;gap:8px 14px;font-size:13.5px;margin:14px 0}
   .kv .k{color:var(--muted);font-weight:600}
   .folders{background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--blue);white-space:pre;overflow:auto}
@@ -936,31 +956,55 @@ window.DESAuth = DESAuth;
 </head>
 <body>
 <header>
-  <div id="headerLogo" class="logo">DES</div>
-  <div class="brand">
-    <h1>Diseños, Equipos y Sistemas</h1>
-    <p>Gestor de clientes y proyectos solares · Guatemala</p>
+  <div class="hdr-brandrow">
+    <div id="headerLogo" class="logo">DES</div>
+    <div class="brand">
+      <h1>Diseños, Equipos y Sistemas</h1>
+      <p>Gestor de clientes y proyectos solares · Guatemala</p>
+    </div>
   </div>
   <nav class="tabs">
-    <div class="tab active" data-tab="clientes">Clientes</div>
-    <div class="tab" data-tab="catalogo">Catálogo / Precios</div>
-    <div class="tab" data-tab="cotizaciones">Ventas</div>
-    <div class="tab" data-tab="ventas">Proyectos</div>
-    <div class="tab" data-tab="finanzas">Finanzas</div>
-    <div class="tab" data-tab="reportes">📊 Reportes</div>
-    <div class="tab" data-tab="tramite">Trámite</div>
-    <div class="tab" data-tab="archivos">📁 Archivos</div>
-    <div class="tab" data-tab="tools">🛠 Tools</div>
+    <div class="tab active" data-tab="clientes"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Clientes</span></div>
+    <div class="tab" data-tab="catalogo"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82Z"/><circle cx="7" cy="7" r="1.4" fill="currentColor" stroke="none"/></svg><span>Catálogo / Precios</span></div>
+    <div class="tab" data-tab="cotizaciones"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M9 15h6M9 11h3"/></svg><span>Ventas</span></div>
+    <div class="tab" data-tab="ventas"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg><span>Proyectos</span></div>
+    <div class="tab" data-tab="finanzas"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span>Finanzas</span></div>
+    <div class="tab" data-tab="reportes"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg><span>Reportes</span></div>
+    <div class="tab" data-tab="tramite"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="m9 14 2 2 4-4"/></svg><span>Trámite</span></div>
+    <div class="tab" data-tab="archivos"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2Z"/></svg><span>Archivos</span></div>
+    <div class="tab" data-tab="tools"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg><span>Tools</span></div>
   </nav>
   <button class="btn-settings" title="Ajustes del sistema" onclick="openSettings()">⚙</button>
 </header>
 
 <div class="wrap" id="tab-clientes">
-  <div class="grid">
-    <!-- FORM -->
-    <div class="card">
-      <h2 id="formTitle">Registrar nuevo cliente</h2>
-      <div class="sub">El campo con <span style="color:var(--brand)">•</span> es obligatorio. El resto los puedes completar después.</div>
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px">
+      <div>
+        <h2 style="margin:0">Clientes registrados</h2>
+        <div class="sub" style="margin-top:2px">Haz clic en un cliente para ver detalle, editar o generar sus carpetas.</div>
+      </div>
+      <button type="button" class="btn primary" onclick="cliOpenNew()">＋ Nuevo cliente</button>
+    </div>
+    <div class="toolbar">
+      <input class="search" id="search" placeholder="🔍 Buscar por nombre, código, teléfono...">
+      <select id="searchEtapa" onchange="render()" title="Filtrar por etapa" style="font-size:13px;padding:7px 10px;border:1.5px solid var(--line);border-radius:8px;outline:none;background:#fff;color:var(--navy)">
+        <option value="">Todas las etapas</option>
+      </select>
+    </div>
+    <div class="count" id="count"></div>
+    <div class="clist" id="list"></div>
+  </div>
+</div>
+
+<!-- MODAL: formulario de cliente (backdrop + guardia de cambios sin guardar) -->
+<div class="modal" id="clienteModal" onclick="cliBackdrop(event)">
+  <div class="box" id="clienteModalBox" style="max-width:720px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px">
+      <h2 id="formTitle" style="margin:0">Registrar nuevo cliente</h2>
+      <button type="button" class="cx" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1" onclick="cliCloseAsk()" title="Cerrar">✕</button>
+    </div>
+    <div class="sub">El campo con <span style="color:var(--brand)">•</span> es obligatorio. El resto los puedes completar después.</div>
       <form id="clientForm" autocomplete="off">
         <input type="hidden" id="cid">
 
@@ -1002,21 +1046,6 @@ window.DESAuth = DESAuth;
           <button type="button" class="btn ghost" id="btnReset">Limpiar</button>
         </div>
       </form>
-    </div>
-
-    <!-- LIST -->
-    <div class="card">
-      <h2>Clientes registrados</h2>
-      <div class="sub">Haz clic en un cliente para ver detalle, editar o generar sus carpetas.</div>
-      <div class="toolbar">
-        <input class="search" id="search" placeholder="🔍 Buscar por nombre, código, teléfono...">
-        <select id="searchEtapa" onchange="render()" title="Filtrar por etapa" style="font-size:13px;padding:7px 10px;border:1.5px solid var(--line);border-radius:8px;outline:none;background:#fff;color:var(--navy)">
-          <option value="">Todas las etapas</option>
-        </select>
-      </div>
-      <div class="count" id="count"></div>
-      <div class="clist" id="list"></div>
-    </div>
   </div>
 </div>
 
@@ -1831,7 +1860,15 @@ window.DESAuth = DESAuth;
         <fieldset>
           <legend>Cliente y datos</legend>
           <div class="field" style="margin:0 0 8px"><label style="font-size:10px;font-weight:700">Cliente (membrete)</label>
-            <select id="uniCliente" onchange="uniClienteChange()" style="font-size:13px;padding:7px 9px;width:100%"></select></div>
+            <div style="position:relative">
+              <input id="uniClienteSearch" type="text" autocomplete="off" placeholder="🔍 Buscar cliente…"
+                oninput="cliCboFilter('uni')" onfocus="cliCboFilter('uni')" onkeydown="cliCboKey('uni',event)"
+                style="font-size:13px;padding:7px 28px 7px 9px;width:100%;box-sizing:border-box">
+              <button type="button" id="uniClienteClearBtn" title="Quitar cliente" onclick="cliCboClear('uni')"
+                style="display:none;position:absolute;right:4px;top:50%;transform:translateY(-50%);border:none;background:none;cursor:pointer;color:var(--muted);font-size:14px;padding:2px 6px;line-height:1">✕</button>
+              <div id="uniClienteDrop" style="display:none;position:absolute;z-index:60;top:calc(100% + 3px);left:0;right:0;max-height:240px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(19,40,63,.14)"></div>
+            </div>
+            <select id="uniCliente" onchange="uniClienteChange()" style="display:none"></select></div>
           <div class="field" style="margin:0 0 8px"><label style="font-size:10px;font-weight:700">Proyecto <span style="color:var(--muted);font-weight:400">· saca los datos del proyecto</span></label>
             <select id="uniProyecto" onchange="uniProyectoChange()" style="font-size:13px;padding:7px 9px;width:100%"></select></div>
           <details style="margin:0">
@@ -1852,10 +1889,12 @@ window.DESAuth = DESAuth;
         <fieldset>
           <legend>Diagramas guardados</legend>
           <input id="uniDiagNombre" placeholder="Nombre del diagrama" style="width:100%;box-sizing:border-box;font-size:11px;padding:6px 8px;margin-bottom:6px">
-          <div style="display:flex;gap:6px;margin-bottom:10px">
-            <button type="button" class="btn primary sm" style="font-size:11px;flex:1" onclick="uniGuardar()">💾 Guardar</button>
-            <button type="button" class="btn ghost sm" style="font-size:11px;flex:1" onclick="uniNuevo()">＋ Nuevo</button>
+          <div id="uniDiagEstado" style="font-size:10px;font-weight:700;margin-bottom:6px;line-height:1.35"></div>
+          <div style="display:flex;gap:6px;margin-bottom:6px">
+            <button type="button" class="btn primary sm" style="font-size:11px;flex:1" onclick="uniGuardar()" title="Actualiza el diagrama abierto, o crea uno si es nuevo">💾 Guardar</button>
+            <button type="button" class="btn ghost sm" style="font-size:11px;flex:1" onclick="uniGuardarComo()" title="Crea una copia nueva sin tocar el original">⧉ Guardar como copia</button>
           </div>
+          <button type="button" class="btn ghost sm" style="font-size:11px;width:100%;box-sizing:border-box;margin-bottom:10px" onclick="uniNuevo()" title="Empieza un diagrama en blanco">＋ Diagrama nuevo (en blanco)</button>
           <details>
             <summary style="font-size:10.5px;font-weight:700;cursor:pointer;color:var(--navy);padding:2px 0">📁 Ver diagramas guardados <span id="uniDiagCount" style="color:var(--muted);font-weight:400"></span></summary>
             <input id="uniDiagBuscar" placeholder="🔍 Buscar diagrama…" oninput="uniDiagList()" style="width:100%;box-sizing:border-box;font-size:11px;padding:6px 8px;margin:7px 0 6px">
@@ -1866,15 +1905,17 @@ window.DESAuth = DESAuth;
         </fieldset>
 
         <fieldset>
-          <legend>Series de paneles</legend>
-          <div id="uniSeries"></div>
-          <button type="button" class="btn ghost sm" style="font-size:11px;margin-top:4px" onclick="uniAddSerie()">＋ Serie</button>
+          <legend>Inversores y sus series</legend>
+          <div id="uniInversores"></div>
+          <button type="button" class="btn ghost sm" style="font-size:11px;margin-top:6px" onclick="uniAddInversor()">＋ Inversor</button>
+          <label style="display:flex;align-items:center;gap:7px;margin-top:11px;font-size:11.5px;font-weight:700;color:var(--navy);cursor:pointer">
+            <input type="checkbox" id="uniMicro" onchange="uniBuild()" style="width:15px;height:15px;accent-color:var(--blue);margin:0">
+            Microinversores · un solo breaker AC para todos
+          </label>
         </fieldset>
 
         <!-- valores constantes ocultos: los textos se editan en "Texto del diagrama" -->
         <div style="display:none">
-          <input id="uniInvModelo" value="Huawei SUN2000">
-          <input id="uniInvKw" value="10">
           <input id="uniMedidor" value="Medidor bidireccional">
           <input id="uniRed" value="Red ENERGUATE">
           <input type="checkbox" id="uniFusDC" checked>
@@ -1938,8 +1979,16 @@ window.DESAuth = DESAuth;
         <div class="card" style="padding:15px 17px;margin-bottom:16px">
           <h3 style="margin:0 0 11px;font-size:14px;font-weight:800;color:var(--navy)">Nuevo trámite</h3>
           <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
-            <div class="field" style="margin:0;flex:1;min-width:180px"><label style="font-size:10px;font-weight:700">Cliente</label>
-              <select id="tramCliente" onchange="tramFillCotis()" style="font-size:13px;padding:7px 9px;width:100%"></select></div>
+            <div class="field" style="margin:0;flex:1;min-width:180px;position:relative"><label style="font-size:10px;font-weight:700">Cliente</label>
+              <div style="position:relative">
+                <input id="tramClienteSearch" type="text" autocomplete="off" placeholder="🔍 Buscar cliente…"
+                  oninput="cliCboFilter('tram')" onfocus="cliCboFilter('tram')" onkeydown="cliCboKey('tram',event)"
+                  style="font-size:13px;padding:7px 28px 7px 9px;width:100%;box-sizing:border-box">
+                <button type="button" id="tramClienteClearBtn" title="Quitar cliente" onclick="cliCboClear('tram')"
+                  style="display:none;position:absolute;right:4px;top:50%;transform:translateY(-50%);border:none;background:none;cursor:pointer;color:var(--muted);font-size:14px;padding:2px 6px;line-height:1">✕</button>
+                <div id="tramClienteDrop" style="display:none;position:absolute;z-index:60;top:calc(100% + 3px);left:0;right:0;max-height:240px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(19,40,63,.14)"></div>
+              </div>
+              <select id="tramCliente" onchange="tramFillCotis()" style="display:none"></select></div>
             <div class="field" style="margin:0;flex:1;min-width:180px"><label style="font-size:10px;font-weight:700">Cotización / Proyecto</label>
               <select id="tramCot" style="font-size:13px;padding:7px 9px;width:100%"></select></div>
             <div class="field" style="margin:0;flex:1;min-width:200px"><label style="font-size:10px;font-weight:700">Tipo de trámite</label>
@@ -1993,8 +2042,16 @@ window.DESAuth = DESAuth;
   <!-- Filtros -->
   <div class="card" style="padding:13px 15px;margin-bottom:14px">
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
-      <div class="field" style="margin:0;flex:1;min-width:160px"><label style="font-size:10px;font-weight:700">Cliente</label>
-        <select id="archCliente" onchange="archOnClienteChange()" style="font-size:13px;padding:7px 9px;width:100%"></select></div>
+      <div class="field" style="margin:0;flex:1;min-width:160px;position:relative"><label style="font-size:10px;font-weight:700">Cliente</label>
+        <div style="position:relative">
+          <input id="archClienteSearch" type="text" autocomplete="off" placeholder="🔍 Buscar cliente…"
+            oninput="archClienteFilter()" onfocus="archClienteFilter()" onkeydown="archClienteKey(event)"
+            style="font-size:13px;padding:7px 28px 7px 9px;width:100%">
+          <button type="button" id="archClienteClearBtn" title="Todos los clientes" onclick="archClienteClear()"
+            style="display:none;position:absolute;right:4px;top:50%;transform:translateY(-50%);border:none;background:none;cursor:pointer;color:var(--muted);font-size:14px;padding:2px 6px;line-height:1">✕</button>
+          <div id="archClienteDrop" style="display:none;position:absolute;z-index:60;top:calc(100% + 3px);left:0;right:0;max-height:260px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(19,40,63,.14)"></div>
+        </div>
+        <select id="archCliente" onchange="archOnClienteChange()" style="display:none"></select></div>
       <div class="field" style="margin:0;flex:1;min-width:160px"><label style="font-size:10px;font-weight:700">Proyecto</label>
         <select id="archProyecto" onchange="archRender()" style="font-size:13px;padding:7px 9px;width:100%"></select></div>
       <div class="field" style="margin:0;flex:1;min-width:150px"><label style="font-size:10px;font-weight:700">Categoría</label>
@@ -2613,14 +2670,26 @@ $("clientForm").addEventListener("submit",e=>{
     clientes.push({id:uid(),code:nextCode(),created:Date.now(),...data});
     toast("Cliente registrado ✓");
   }
-  save();render();resetForm();
+  save();render();resetForm();cliHideModal();
 });
 
 $("btnReset").addEventListener("click",resetForm);
 function resetForm(){
   $("clientForm").reset();$("cid").value="";$("formTitle").textContent="Registrar nuevo cliente";
   fillMunis("");
+  cliDirty=false;
 }
+
+/* ===== Modal de cliente: backdrop + guardia de cambios sin guardar ===== */
+let cliDirty=false;
+// Cualquier edición en el formulario marca "sucio" (cambios sin guardar)
+(function(){ const f=$("clientForm"); if(f){ f.addEventListener("input",()=>{cliDirty=true;}); f.addEventListener("change",()=>{cliDirty=true;}); } })();
+function cliOpenNew(){ resetForm(); cliDirty=false; $("clienteModal").classList.add("show"); setTimeout(()=>{ const n=$("nombre"); if(n)n.focus(); },40); }
+function cliShowModal(){ $("clienteModal").classList.add("show"); cliDirty=false; }   // usado tras poblar en edit()
+function cliHideModal(){ $("clienteModal").classList.remove("show"); cliDirty=false; }
+function cliCloseAsk(){ if(cliDirty && !confirm("Tienes cambios sin guardar. ¿Descartarlos?")) return; resetForm(); cliHideModal(); }
+function cliShake(){ const b=$("clienteModalBox"); if(!b)return; b.classList.remove("shake"); void b.offsetWidth; b.classList.add("shake"); }
+function cliBackdrop(e){ if(e.target===$("clienteModal")){ if(cliDirty) cliShake(); else { resetForm(); cliHideModal(); } } }
 
 // RENDER LIST
 function render(){
@@ -2700,7 +2769,7 @@ function edit(id){
   fillSelect("etapa","etapa",{includeBlank:optsFor("etapa").length===0,blankLabel:"— Ninguna (usa ＋) —",extra:[c.etapa]});
   $("etapa").value=c.etapa||"";
   fillMunis(c.departamento,c.municipio);
-  window.scrollTo({top:0,behavior:"smooth"});
+  cliShowModal();
 }
 function del(id){
   if(!confirm("¿Eliminar este cliente?"))return;
@@ -2764,7 +2833,7 @@ document.querySelectorAll('.tab[data-tab]').forEach(t=>{
 });
 document.querySelectorAll('.subtab[data-sub]').forEach(s=>{
   s.addEventListener('click',()=>{
-    document.querySelectorAll('.subtab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('#subtabsPrecios .subtab').forEach(x=>x.classList.remove('active'));
     s.classList.add('active');
     curSub=s.dataset.sub; uiPrefsSave({sub:curSub}); applyTabs();
   });
@@ -5626,7 +5695,7 @@ function comboEdit(id){
   $("comboDesc").value=c.descripcion||"";
   $("comboTitle").textContent="Editar combo · "+c.code;
   comboItems=JSON.parse(JSON.stringify(c.items||[]));comboItemsRender();
-  document.querySelectorAll('.subtab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('#subtabsPrecios .subtab').forEach(x=>x.classList.remove('active'));
   document.querySelector('.subtab[data-sub="combos"]').classList.add('active');
   curSub="combos";applyTabs();
   window.scrollTo({top:0,behavior:"smooth"});
@@ -9232,7 +9301,7 @@ function toolsSwitch(sub){
 }
 
 /* ==================== DIAGRAMA UNIFILAR ==================== */
-let uniSeries=[{n:12,w:600}];
+let uniInversores=[{id:"i"+Date.now(), modelo:"Huawei SUN2000", kw:"10", series:[{n:12,w:600}]}];
 let uniNodos=[], uniConex=[];
 let _uniInit=false, _uniDrag=null, uniSel=new Set();
 const UNI_FONTS=["Segoe UI","Arial","Calibri","Helvetica","Times New Roman","Georgia","Verdana","Tahoma","Courier New"];
@@ -9256,7 +9325,7 @@ function uniEsc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/<
 
 function uniInit(){
   const sel=$("uniCliente");
-  if(sel){ const prev=sel.value; const ord=[...clientes].sort((a,b)=>tramClienteNombre(a).localeCompare(tramClienteNombre(b),'es')); sel.innerHTML=`<option value="">— Elige cliente —</option>`+ord.map(c=>`<option value="${c.id}">${esc(tramClienteNombre(c))}</option>`).join(""); if(prev)sel.value=prev; }
+  if(sel){ const prev=sel.value; const ord=[...clientes].sort((a,b)=>tramClienteNombre(a).localeCompare(tramClienteNombre(b),'es')); sel.innerHTML=`<option value="">— Elige cliente —</option>`+ord.map(c=>`<option value="${c.id}">${esc(tramClienteNombre(c))}</option>`).join(""); if(prev)sel.value=prev; if(typeof cliCboSync==="function") cliCboSync('uni'); }
   // poblar selects de fuente
   const opts=UNI_FONTS.map(f=>`<option value="${f}">${f}</option>`).join("");
   ["uniMbFam","uniTxtFam"].forEach(id=>{ const s=$(id); if(s&&!s.options.length) s.innerHTML=opts; });
@@ -9267,7 +9336,7 @@ function uniInit(){
   if($("uniTxtSize")) $("uniTxtSize").value=uniTxtFont.size;
   if($("uniTxtBold")) $("uniTxtBold").checked=uniTxtFont.bold;
   uniFillProyectos();
-  uniRenderSeries();
+  uniRenderInversores();
   uniMbRender();
   uniDiagList();
   if(!_uniInit){ _uniInit=true; uniBuild(); }
@@ -9291,8 +9360,8 @@ function uniTxtFontUpd(){ uniTxtFont={fam:$("uniTxtFam").value||"Segoe UI", size
 function uniTxtList(){
   const box=$("uniTxtList"); if(!box) return;
   const nom={pv:"Panel",fus:"Fusible DC",desc:"Desconexión",dps:"DPS",inv:"Inversor",brk:"Breaker",med:"Medidor",red:"Red",texto:"Texto"};
-  box.innerHTML=uniNodos.map(n=>{
-    const has2=(n.tipo==="pv"||n.tipo==="inv"||n.tipo==="brk");
+  box.innerHTML=uniNodos.filter(n=>n.tipo!=="inv").map(n=>{
+    const has2=(n.tipo==="pv"||n.tipo==="brk");
     return `<div style="display:grid;grid-template-columns:56px ${has2?'minmax(0,1fr) minmax(0,1fr)':'minmax(0,1fr)'};gap:5px;align-items:center;margin-bottom:5px">
       <span style="font-size:10px;color:var(--muted)">${nom[n.tipo]||n.tipo}</span>
       <input value="${esc(n.l1||"")}" oninput="uniTxtSet('${n.id}','l1',this.value)" style="font-size:12px;padding:5px 7px;min-width:0;width:100%;box-sizing:border-box">
@@ -9301,17 +9370,35 @@ function uniTxtList(){
   }).join("");
 }
 function uniTxtSet(id,field,val){ const n=uniNode(id); if(!n)return; n[field]=val; n.tedited=true; uniRender(); }
-function uniRenderSeries(){
-  const box=$("uniSeries"); if(!box) return;
-  box.innerHTML=uniSeries.map((s,i)=>`<div style="display:flex;gap:5px;align-items:center;margin-bottom:5px">
-    <input type="number" min="1" value="${s.n}" oninput="uniSeries[${i}].n=+this.value||0" style="width:58px;font-size:12px;padding:5px 6px" title="paneles">
-    <span style="font-size:11px;color:var(--muted)">×</span>
-    <input type="number" min="1" value="${s.w}" oninput="uniSeries[${i}].w=+this.value||0" style="width:68px;font-size:12px;padding:5px 6px" title="watts"><span style="font-size:11px;color:var(--muted)">W</span>
-    ${uniSeries.length>1?`<button type="button" class="btn ghost sm" style="font-size:11px;color:#c0392b;margin-left:auto;padding:3px 7px" onclick="uniDelSerie(${i})">✕</button>`:""}
-  </div>`).join("");
+function uniRenderInversores(){
+  const box=$("uniInversores"); if(!box) return;
+  box.innerHTML=uniInversores.map((inv,ii)=>{
+    const series=(inv.series||[]).map((s,si)=>`<div style="display:flex;gap:5px;align-items:center;margin-bottom:4px">
+        <input type="number" min="1" value="${s.n}" oninput="uniInversores[${ii}].series[${si}].n=+this.value||0" style="width:52px;font-size:12px;padding:4px 6px" title="paneles">
+        <span style="font-size:11px;color:var(--muted)">×</span>
+        <input type="number" min="1" value="${s.w}" oninput="uniInversores[${ii}].series[${si}].w=+this.value||0" style="width:60px;font-size:12px;padding:4px 6px" title="watts"><span style="font-size:11px;color:var(--muted)">W</span>
+        ${inv.series.length>1?`<button type="button" class="btn ghost sm" style="font-size:11px;color:#c0392b;margin-left:auto;padding:2px 7px" onclick="uniInvDelSerie(${ii},${si})">✕</button>`:""}
+      </div>`).join("");
+    return `<div style="border:1px solid var(--line);border-radius:10px;padding:9px 10px;margin-bottom:9px;background:var(--soft)">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:7px">
+        <span style="font-size:11px;font-weight:800;color:var(--navy)">⚡ Inversor ${ii+1}</span>
+        ${uniInversores.length>1?`<button type="button" class="btn ghost sm" style="font-size:11px;color:#c0392b;margin-left:auto;padding:2px 7px" onclick="uniDelInversor(${ii})" title="Quitar inversor">✕</button>`:""}
+      </div>
+      <div style="display:flex;gap:5px;margin-bottom:8px">
+        <input value="${esc(inv.modelo||'')}" placeholder="Modelo" oninput="uniInversores[${ii}].modelo=this.value" style="flex:1;min-width:0;font-size:12px;padding:5px 7px" title="Modelo del inversor">
+        <input value="${esc(inv.kw||'')}" placeholder="kW" oninput="uniInversores[${ii}].kw=this.value" style="width:58px;font-size:12px;padding:5px 7px" title="Potencia (kW)"><span style="font-size:11px;color:var(--muted);align-self:center">kW</span>
+      </div>
+      <div style="font-size:10px;color:var(--muted);font-weight:700;margin-bottom:4px">Series / strings</div>
+      ${series}
+      <button type="button" class="btn ghost sm" style="font-size:10.5px;margin-top:3px;padding:3px 9px" onclick="uniInvAddSerie(${ii})">＋ Serie</button>
+    </div>`;
+  }).join("");
 }
-function uniAddSerie(){ const last=uniSeries[uniSeries.length-1]; uniSeries.push({n:(last?last.n:12),w:(last?last.w:600)}); uniRenderSeries(); }
-function uniDelSerie(i){ uniSeries.splice(i,1); if(!uniSeries.length)uniSeries=[{n:12,w:600}]; uniRenderSeries(); }
+function uniNewInvId(){ return "i"+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function uniAddInversor(){ const last=uniInversores[uniInversores.length-1]; uniInversores.push({id:uniNewInvId(), modelo:(last?last.modelo:"Huawei SUN2000"), kw:"", series:[{n:12,w:600}]}); uniRenderInversores(); }
+function uniDelInversor(i){ uniInversores.splice(i,1); if(!uniInversores.length)uniInversores=[{id:uniNewInvId(),modelo:"Huawei SUN2000",kw:"10",series:[{n:12,w:600}]}]; uniRenderInversores(); }
+function uniInvAddSerie(ii){ const inv=uniInversores[ii]; if(!inv)return; if(!Array.isArray(inv.series))inv.series=[]; const last=inv.series[inv.series.length-1]; inv.series.push({n:(last?last.n:12),w:(last?last.w:600)}); uniRenderInversores(); }
+function uniInvDelSerie(ii,si){ const inv=uniInversores[ii]; if(!inv)return; inv.series.splice(si,1); if(!inv.series.length)inv.series=[{n:12,w:600}]; uniRenderInversores(); }
 function uniMbField(id){ return uniMembrete.find(f=>f.id===id); }
 function uniSetClienteMembrete(cid){
   const c=clientes.find(x=>x.id===cid); if(!c) return;
@@ -9346,11 +9433,17 @@ function uniExtraerCoti(c){
   const invModelo=invLines.length?(invLines[0].descripcion||"Inversor").trim():"";
   return {series, invKW, invModelo, nis:(c&&c.nis)||""};
 }
-// Aplica datos extraídos (de proyecto o IA) al formulario del unifilar
+// Aplica datos extraídos (de proyecto o IA) al formulario del unifilar.
+// La extracción de una cotización es de un solo inversor → lo cargamos como el inversor 1.
 function uniAplicarDatos(d, nombre){
-  if(d.series && d.series.length){ uniSeries=d.series.map(s=>({n:s.n||0,w:s.w||0})); if(!uniSeries.length)uniSeries=[{n:12,w:600}]; uniRenderSeries(); }
-  if(d.invModelo && $("uniInvModelo")) $("uniInvModelo").value=d.invModelo;
-  if(d.invKW>0 && $("uniInvKw")) $("uniInvKw").value=String(+d.invKW.toFixed(2));
+  if(d.series && d.series.length){
+    const prev0=uniInversores&&uniInversores[0];
+    const modelo=(d.invModelo&&d.invModelo.trim()) || (prev0&&prev0.modelo) || "Huawei SUN2000";
+    const kw=(d.invKW>0)? String(+d.invKW.toFixed(2)) : ((prev0&&prev0.kw)||"");
+    let series=d.series.map(s=>({n:s.n||0,w:s.w||0})); if(!series.length)series=[{n:12,w:600}];
+    uniInversores=[{id:uniNewInvId(), modelo, kw, series}];
+    uniRenderInversores();
+  }
   const fp=uniMbField("pot"); if(fp && d.invKW>0) fp.value=(+d.invKW.toFixed(2))+" kW";
   const fn=uniMbField("nis"); if(fn && d.nis) fn.value=d.nis;
   if(nombre && !uniCurId && $("uniDiagNombre")) $("uniDiagNombre").value=nombre;
@@ -9359,7 +9452,7 @@ function uniAplicarDatos(d, nombre){
 function uniProyectoChange(){
   const c=cotizaciones.find(x=>x.id===$("uniProyecto").value); if(!c) return;
   // el NOMBRE del membrete viene del cliente, no del proyecto
-  if(c.clienteId){ if($("uniCliente")) $("uniCliente").value=c.clienteId; uniSetClienteMembrete(c.clienteId); }
+  if(c.clienteId){ if($("uniCliente")) $("uniCliente").value=c.clienteId; if(typeof cliCboSync==="function") cliCboSync('uni'); uniSetClienteMembrete(c.clienteId); }
   uniAplicarDatos(uniExtraerCoti(c), (c.alias||c.numero||""));
 }
 /* ----- Cotización externa leída con IA ----- */
@@ -9396,36 +9489,58 @@ async function uniCotLeerIA(){
   finally{ if(btn){ btn.disabled=false; btn.textContent=old; } }
 }
 function uniBuild(){
-  const inv={modelo:($("uniInvModelo").value||"Inversor").trim(), kw:($("uniInvKw").value||"").trim()};
   const o={fusDC:$("uniFusDC").checked,descDC:$("uniDescDC").checked,brk:$("uniBreaker").checked,dpsAC:$("uniDpsAC").checked};
+  const micro = !!($("uniMicro") && $("uniMicro").checked);   // microinversores: un solo breaker compartido
   const brkA=($("uniBreakerA").value||"").trim();
   // conservar posiciones/etiquetas movidas por id estable
   const prev={}; uniNodos.forEach(n=>{ prev[n.id]=n; });
   const textos=uniNodos.filter(n=>n.tipo==="texto");
   uniNodos=[]; uniConex=[];
-  const cx=300;                         // eje vertical central
-  const sy=24+uniMbHeight()+88;         // empezar debajo del membrete (con espacio para texto arriba)
-  const k=uniSeries.length, sGap=150, serieIds=[];
-  uniSeries.forEach((s,i)=>{ const id="s"+i; const x=Math.round(cx-(k-1)*sGap/2+i*sGap);
-    uniNodos.push({id,tipo:"pv",x,y:sy,l1:`Serie ${i+1}`,l2:`${s.n} × ${s.w} W`,lx:0,ly:-66,lanchor:"middle"}); serieIds.push(id); });
-  const chain=[];
-  if(o.fusDC) chain.push({id:"fus",tipo:"fus",l1:"Fusibles DC",l2:""});
-  if(o.descDC) chain.push({id:"desc",tipo:"desc",l1:"Desconexión DC",l2:""});
-  chain.push({id:"inv",tipo:"inv",l1:inv.modelo,l2:(inv.kw?inv.kw+" kW":""),ground:true});
-  if(o.dpsAC) chain.push({id:"dpsac",tipo:"dps",l1:"DPS AC",l2:""});
-  if(o.brk) chain.push({id:"brk",tipo:"brk",l1:"Breaker AC",l2:brkA});
-  chain.push({id:"med",tipo:"med",l1:($("uniMedidor").value||"Medidor").trim(),l2:""});
-  chain.push({id:"red",tipo:"red",l1:($("uniRed").value||"Red").trim(),l2:""});
-  let cyy=sy+130; const cg=96; const chainIds=[];
-  chain.forEach(c=>{ uniNodos.push({id:c.id,tipo:c.tipo,x:cx,y:cyy,l1:c.l1,l2:c.l2,ground:!!c.ground,lx:58,ly:0,lanchor:"start"}); chainIds.push(c.id); cyy+=cg; });
-  const first=chainIds[0];
-  serieIds.forEach(sid=>uniConex.push({a:sid,b:first,serie:true}));
-  for(let i=0;i<chainIds.length-1;i++) uniConex.push({a:chainIds[i],b:chainIds[i+1]});
-  // centrar horizontalmente: la columna/eje de símbolos al centro de la hoja (816 px)
+  const sy=24+uniMbHeight()+88;         // empezar debajo del membrete
+  const strGap=92, legPad=196, cg=88;   // legPad deja hueco para las etiquetas laterales entre inversores
+  const invs = (uniInversores&&uniInversores.length)?uniInversores:[{id:"i0",modelo:"Inversor",kw:"",series:[{n:12,w:600}]}];
+  // ── Layout horizontal de las piernas (una por inversor) ──
+  const legs=invs.map(inv=>({inv, k:Math.max(1,((inv.series||[]).length))}));
+  let curX=0; legs.forEach(L=>{ L.w=(L.k-1)*strGap; L.left=curX; L.cx=curX+L.w/2; curX+=L.w+legPad; });
+  // ── Construir cada pierna: series → (fus) → (desc) → inversor → (breaker) ──
+  const legLastAC=[];   // id del último nodo AC de cada pierna (breaker o inversor)
+  let legBottomY=sy+130;
+  legs.forEach(L=>{
+    const inv=L.inv, bid=inv.id||"i";
+    const sIds=[];
+    (inv.series||[]).forEach((s,j)=>{ const id=`s_${bid}_${j}`; const x=Math.round(L.left+j*strGap);
+      uniNodos.push({id,tipo:"pv",x,y:sy,l1:`Serie ${j+1}`,l2:`${s.n} × ${s.w} W`,lx:0,ly:-66,lanchor:"middle"}); sIds.push(id); });
+    const chain=[];
+    if(o.fusDC) chain.push({id:`fus_${bid}`,tipo:"fus",l1:"Fusibles DC",l2:""});
+    if(o.descDC) chain.push({id:`desc_${bid}`,tipo:"desc",l1:"Desconexión DC",l2:""});
+    chain.push({id:`inv_${bid}`,tipo:"inv",l1:(inv.modelo||"Inversor").trim(),l2:(inv.kw?String(inv.kw).trim()+" kW":"")});
+    if(o.brk && !micro) chain.push({id:`brk_${bid}`,tipo:"brk",l1:"Breaker AC",l2:brkA});   // breaker por inversor (modo string)
+    let cyy=sy+130; const ids=[];
+    chain.forEach(c=>{ uniNodos.push({id:c.id,tipo:c.tipo,x:Math.round(L.cx),y:cyy,l1:c.l1,l2:c.l2,lx:58,ly:0,lanchor:"start"}); ids.push(c.id); cyy+=cg; });
+    const first=ids[0];
+    sIds.forEach(sid=>uniConex.push({a:sid,b:first,serie:true}));
+    for(let i=0;i<ids.length-1;i++) uniConex.push({a:ids[i],b:ids[i+1]});
+    legLastAC.push(ids[ids.length-1]);
+    legBottomY=Math.max(legBottomY, cyy);   // todas las piernas terminan a la misma altura
+  });
+  // ── Cadena compartida bajo el bus AC: (DPS) → medidor → red ──
+  const cxShared=Math.round((legs[0].cx + legs[legs.length-1].cx)/2);
+  const shared=[];
+  if(o.dpsAC) shared.push({id:"dpsac",tipo:"dps",l1:"DPS AC",l2:""});
+  if(o.brk && micro) shared.push({id:"brk_shared",tipo:"brk",l1:"Breaker AC",l2:brkA});   // un solo breaker para todos los microinversores
+  shared.push({id:"med",tipo:"med",l1:($("uniMedidor").value||"Medidor").trim(),l2:""});
+  shared.push({id:"red",tipo:"red",l1:($("uniRed").value||"Red").trim(),l2:""});
+  let syy=legBottomY+42; const sharedIds=[];
+  shared.forEach(c=>{ uniNodos.push({id:c.id,tipo:c.tipo,x:cxShared,y:syy,l1:c.l1,l2:c.l2,lx:58,ly:0,lanchor:"start"}); sharedIds.push(c.id); syy+=cg; });
+  const firstShared=sharedIds[0];
+  // combinar: cada salida de pierna → primer nodo compartido (forma el bus en paralelo)
+  legLastAC.forEach(id=>uniConex.push({a:id,b:firstShared,serie:true}));
+  for(let i=0;i<sharedIds.length-1;i++) uniConex.push({a:sharedIds[i],b:sharedIds[i+1]});
+  // centrar horizontalmente en la hoja (816 px)
   let minX=1e9, maxX=-1e9;
   uniNodos.forEach(n=>{ const aw=uniAW(n.tipo); minX=Math.min(minX,n.x-aw); maxX=Math.max(maxX,n.x+aw); });
   if(minX<maxX){ const dC=Math.round(816/2-(minX+maxX)/2); uniNodos.forEach(n=>{ n.x+=dC; }); }
-  // restaurar lo que el usuario movió (posición del símbolo y de la etiqueta)
+  // restaurar lo que el usuario movió/editó (por id estable)
   uniNodos.forEach(n=>{ const p=prev[n.id]; if(!p) return;
     if(p.moved){ n.x=p.x; n.y=p.y; n.moved=true; }
     if(p.lmoved){ n.lx=p.lx; n.ly=p.ly; n.lmoved=true; }
@@ -9457,14 +9572,14 @@ function uniSym(n){
   } else if(t==="desc"){
     s=`<line x1="0" y1="-22" x2="0" y2="-12" stroke="${TS}" stroke-width="1.6"/><circle cx="0" cy="-12" r="2.6" fill="${TS}"/><line x1="0" y1="-12" x2="16" y2="6" stroke="${TP}" stroke-width="2"/><circle cx="0" cy="12" r="2.6" fill="${TS}"/><line x1="0" y1="12" x2="0" y2="22" stroke="${TS}" stroke-width="1.6"/>`;
   } else if(t==="brk"){
-    s=`<line x1="0" y1="-22" x2="0" y2="-12" stroke="${TS}" stroke-width="1.6"/><circle cx="0" cy="-12" r="2.6" fill="${TS}"/><line x1="0" y1="-12" x2="16" y2="6" stroke="${TP}" stroke-width="2"/><line x1="0" y1="12" x2="0" y2="22" stroke="${TS}" stroke-width="1.6"/><line x1="-6" y1="6" x2="6" y2="18" stroke="${TP}" stroke-width="2.1"/><line x1="6" y1="6" x2="-6" y2="18" stroke="${TP}" stroke-width="2.1"/>`;
+    s=`<line x1="0" y1="-22" x2="0" y2="-12" stroke="${TS}" stroke-width="1.6"/><circle cx="0" cy="-12" r="2.6" fill="${TS}"/><line x1="0" y1="-12" x2="16" y2="6" stroke="${TP}" stroke-width="2"/><circle cx="0" cy="12" r="2.6" fill="${TS}"/><line x1="0" y1="12" x2="0" y2="22" stroke="${TS}" stroke-width="1.6"/>`;
   } else if(t==="dps"){
     s=`<line x1="0" y1="-20" x2="0" y2="20" stroke="${TS}" stroke-width="1.6"/><rect x="-22" y="-12" width="20" height="24" rx="2" fill="#fff" stroke="${TP}" stroke-width="1.8"/><line x1="-18" y1="6" x2="-6" y2="-6" stroke="${TP}" stroke-width="1.5"/><path d="M-6 -6 l-5 0 l2 4 z" fill="${TP}"/><line x1="0" y1="20" x2="0" y2="28" stroke="${TS}" stroke-width="1.6"/><path d="M-9 28 L9 28 M-6 32 L6 32 M-3 36 L3 36" stroke="${TS}" stroke-width="1.5"/>`;
   } else if(t==="dif"){
     s=`<line x1="0" y1="-22" x2="0" y2="22" stroke="${TS}" stroke-width="1.6"/><rect x="-24" y="-15" width="48" height="30" rx="3" fill="#fff" stroke="${TP}" stroke-width="1.8"/><text y="5" font-size="13" text-anchor="middle" fill="${TP}">I∆n</text>`;
   }
   let g="";
-  if(n.ground){ g=`<line x1="-38" y1="6" x2="-62" y2="6" stroke="${TS}" stroke-width="1.6"/><line x1="-62" y1="6" x2="-62" y2="24" stroke="${TS}" stroke-width="1.6"/><path d="M-72 24 L-52 24 M-68 29 L-56 29 M-65 34 L-59 34" stroke="${TS}" stroke-width="1.6"/>`; }
+  // Conexión a tierra del inversor eliminada a pedido (antes: if(n.ground){...}). Se deja sin dibujar en todos los diagramas.
   let halo="";
   if(uniSel && uniSel.has(n.id)){ const aw=uniAW(t)+7, ah=uniAH(t)+7; halo=`<rect x="${-aw}" y="${-ah}" width="${aw*2}" height="${ah*2}" rx="6" fill="rgba(23,99,182,.10)" stroke="#1763b6" stroke-width="1.2" stroke-dasharray="4 3"/>`; }
   return `<g class="uni-node" data-nid="${n.id}" transform="translate(${n.x},${n.y})">${halo}${s}${g}</g>`;
@@ -9648,9 +9763,11 @@ function uniDiagPersist(){ try{localStorage.setItem(UNISTORE,JSON.stringify(uniD
 function uniSnapshot(){
   return {
     cliente:($("uniCliente")&&$("uniCliente").value)||"",
-    series:JSON.parse(JSON.stringify(uniSeries)),
-    inv:{modelo:($("uniInvModelo")&&$("uniInvModelo").value)||"", kw:($("uniInvKw")&&$("uniInvKw").value)||""},
-    prot:{fusDC:$("uniFusDC").checked, descDC:$("uniDescDC").checked, brk:$("uniBreaker").checked, brkA:($("uniBreakerA").value||""), dpsAC:$("uniDpsAC").checked},
+    inversores:JSON.parse(JSON.stringify(uniInversores)),
+    // retrocompat: guardamos también el primer inversor en el formato viejo
+    series:JSON.parse(JSON.stringify((uniInversores[0]&&uniInversores[0].series)||[])),
+    inv:{modelo:(uniInversores[0]&&uniInversores[0].modelo)||"", kw:(uniInversores[0]&&uniInversores[0].kw)||""},
+    prot:{fusDC:$("uniFusDC").checked, descDC:$("uniDescDC").checked, brk:$("uniBreaker").checked, brkA:($("uniBreakerA").value||""), dpsAC:$("uniDpsAC").checked, micro:!!($("uniMicro")&&$("uniMicro").checked)},
     medidor:($("uniMedidor")&&$("uniMedidor").value)||"", red:($("uniRed")&&$("uniRed").value)||"",
     membrete:JSON.parse(JSON.stringify(uniMembrete)),
     mbFont:{...uniMbFont}, txtFont:{...uniTxtFont},
@@ -9660,16 +9777,24 @@ function uniSnapshot(){
 }
 function uniApplySnap(s){
   if(!s) return;
-  uniSeries = (s.series&&s.series.length)? JSON.parse(JSON.stringify(s.series)) : [{n:12,w:600}];
+  // Diagramas nuevos traen 'inversores'; los viejos se migran desde series+inv al inversor 1.
+  if(s.inversores && s.inversores.length){
+    uniInversores = JSON.parse(JSON.stringify(s.inversores)).map(inv=>({
+      id: inv.id||uniNewInvId(), modelo: inv.modelo||"", kw: inv.kw||"",
+      series: (inv.series&&inv.series.length)? inv.series : [{n:12,w:600}]
+    }));
+  } else {
+    const series=(s.series&&s.series.length)? JSON.parse(JSON.stringify(s.series)) : [{n:12,w:600}];
+    uniInversores = [{ id:uniNewInvId(), modelo:(s.inv&&s.inv.modelo)||"Huawei SUN2000", kw:(s.inv&&s.inv.kw)||"", series }];
+  }
   uniMembrete = s.membrete? JSON.parse(JSON.stringify(s.membrete)) : uniMbDefault();
   uniMbFont = s.mbFont? {...s.mbFont} : uniMbFont;
   uniTxtFont = s.txtFont? {...s.txtFont} : uniTxtFont;
   uniNodos = s.nodos? JSON.parse(JSON.stringify(s.nodos)) : [];
   uniConex = s.conex? JSON.parse(JSON.stringify(s.conex)) : [];
   if($("uniCliente")) $("uniCliente").value=s.cliente||"";
-  if($("uniInvModelo")) $("uniInvModelo").value=(s.inv&&s.inv.modelo)||"";
-  if($("uniInvKw")) $("uniInvKw").value=(s.inv&&s.inv.kw)||"";
-  if(s.prot){ $("uniFusDC").checked=!!s.prot.fusDC; $("uniDescDC").checked=!!s.prot.descDC; $("uniBreaker").checked=!!s.prot.brk; $("uniBreakerA").value=s.prot.brkA||""; $("uniDpsAC").checked=!!s.prot.dpsAC; }
+  if(typeof cliCboSync==="function") cliCboSync('uni');
+  if(s.prot){ $("uniFusDC").checked=!!s.prot.fusDC; $("uniDescDC").checked=!!s.prot.descDC; $("uniBreaker").checked=!!s.prot.brk; $("uniBreakerA").value=s.prot.brkA||""; $("uniDpsAC").checked=!!s.prot.dpsAC; if($("uniMicro")) $("uniMicro").checked=!!s.prot.micro; }
   if($("uniMedidor")) $("uniMedidor").value=s.medidor||"";
   if($("uniRed")) $("uniRed").value=s.red||"";
   if($("uniMbFam")) $("uniMbFam").value=uniMbFont.fam;
@@ -9678,26 +9803,57 @@ function uniApplySnap(s){
   if($("uniTxtFam")) $("uniTxtFam").value=uniTxtFont.fam;
   if($("uniTxtSize")) $("uniTxtSize").value=uniTxtFont.size;
   if($("uniTxtBold")) $("uniTxtBold").checked=uniTxtFont.bold;
-  uniRenderSeries(); uniMbRender(); uniRender(); uniTxtList();
+  uniRenderInversores(); uniMbRender(); uniRender(); uniTxtList();
 }
 function uniDiagDefName(){ const c=clientes.find(x=>x.id===($("uniCliente")&&$("uniCliente").value)); return c?tramClienteNombre(c):("Diagrama "+(uniDiagrams.length+1)); }
+// Estado visible: ¿estoy editando uno guardado o es nuevo?
+function uniDiagEstadoRender(){
+  const el=$("uniDiagEstado"); if(!el) return;
+  const d=uniCurId?uniDiagrams.find(x=>x.id===uniCurId):null;
+  if(d){ el.innerHTML=`✏️ Editando: <span style="color:var(--blue)">${esc(d.nombre||"(sin nombre)")}</span> · “Guardar” lo actualiza`; el.style.color="var(--navy)"; }
+  else { el.innerHTML=`● Diagrama nuevo (sin guardar) · “Guardar” crea uno nuevo`; el.style.color="var(--muted)"; }
+}
+// Nombre único: agrega (copia) / (copia N) si ya existe
+function uniNombreUnico(base){
+  base=(base||"").trim()||uniDiagDefName();
+  if(!uniDiagrams.some(x=>x.nombre===base)) return base;
+  let nom=base+" (copia)", k=2;
+  while(uniDiagrams.some(x=>x.nombre===nom)){ nom=base+" (copia "+k+")"; k++; }
+  return nom;
+}
 function uniGuardar(){
   const inp=$("uniDiagNombre"); const nom=((inp&&inp.value)||"").trim()||uniDiagDefName();
   const snap=uniSnapshot();
-  if(uniCurId){ const d=uniDiagrams.find(x=>x.id===uniCurId); if(d){ d.nombre=nom; d.snap=snap; d.updatedAt=Date.now(); uniDiagPersist(); uniDiagList(); toast("Diagrama actualizado ✓"); return; } }
-  const d={id:uid(), nombre:nom, snap, createdAt:Date.now(), updatedAt:Date.now()};
-  uniDiagrams.push(d); uniCurId=d.id; if(inp)inp.value=nom; uniDiagPersist(); uniDiagList(); toast("Diagrama guardado ✓");
+  if(uniCurId){ const d=uniDiagrams.find(x=>x.id===uniCurId); if(d){ d.nombre=nom; d.snap=snap; d.updatedAt=Date.now(); uniDiagPersist(); uniDiagList(); toast('Actualizado: "'+nom+'" ✓'); return; } }
+  const d={id:uid(), nombre:uniNombreUnico(nom), snap, createdAt:Date.now(), updatedAt:Date.now()};
+  uniDiagrams.push(d); uniCurId=d.id; if(inp)inp.value=d.nombre; uniDiagPersist(); uniDiagList(); toast('Guardado: "'+d.nombre+'" ✓');
+}
+// Siempre crea una copia NUEVA sin tocar el original, y pasa a editar la copia
+function uniGuardarComo(){
+  const inp=$("uniDiagNombre");
+  const cur=uniCurId?uniDiagrams.find(x=>x.id===uniCurId):null;
+  const base=((inp&&inp.value)||"").trim() || (cur?cur.nombre:"") || uniDiagDefName();
+  const nom=uniNombreUnico(base);
+  const d={id:uid(), nombre:nom, snap:uniSnapshot(), createdAt:Date.now(), updatedAt:Date.now()};
+  uniDiagrams.push(d); uniCurId=d.id; if(inp)inp.value=nom; uniDiagPersist(); uniDiagList(); toast('Copia guardada: "'+nom+'" ✓');
 }
 function uniNuevo(){
   uniCurId=null; if($("uniDiagNombre"))$("uniDiagNombre").value="";
-  uniSeries=[{n:12,w:600}]; uniMembrete=uniMbDefault(); uniNodos=[]; uniConex=[]; uniSel=new Set();
-  uniRenderSeries(); uniMbRender(); uniBuild(); uniDiagList();
+  uniInversores=[{id:uniNewInvId(),modelo:"Huawei SUN2000",kw:"10",series:[{n:12,w:600}]}]; if($("uniMicro"))$("uniMicro").checked=false; uniMembrete=uniMbDefault(); uniNodos=[]; uniConex=[]; uniSel=new Set();
+  uniRenderInversores(); uniMbRender(); uniBuild(); uniDiagList();
 }
 function uniCargar(id){ const d=uniDiagrams.find(x=>x.id===id); if(!d)return; uniCurId=id; if($("uniDiagNombre"))$("uniDiagNombre").value=d.nombre||""; uniApplySnap(d.snap); uniDiagList(); toast("Diagrama abierto"); }
-function uniDuplicar(id){ const d=uniDiagrams.find(x=>x.id===id); if(!d)return; const c={id:uid(), nombre:(d.nombre||"Diagrama")+" (copia)", snap:JSON.parse(JSON.stringify(d.snap)), createdAt:Date.now(), updatedAt:Date.now()}; const idx=uniDiagrams.findIndex(x=>x.id===id); uniDiagrams.splice(idx+1,0,c); uniDiagPersist(); uniDiagList(); toast("Diagrama duplicado ✓"); }
+function uniDuplicar(id){ const d=uniDiagrams.find(x=>x.id===id); if(!d)return;
+  const c={id:uid(), nombre:uniNombreUnico((d.nombre||"Diagrama")), snap:JSON.parse(JSON.stringify(d.snap)), createdAt:Date.now(), updatedAt:Date.now()};
+  const idx=uniDiagrams.findIndex(x=>x.id===id); uniDiagrams.splice(idx+1,0,c); uniDiagPersist();
+  // abrir la copia para editarla de una vez
+  uniCurId=c.id; if($("uniDiagNombre"))$("uniDiagNombre").value=c.nombre; uniApplySnap(c.snap); uniDiagList();
+  toast('Duplicado: "'+c.nombre+'" — ya lo estás editando');
+}
 function uniRenombrar(id){ const d=uniDiagrams.find(x=>x.id===id); if(!d)return; const n=prompt("Nuevo nombre:",d.nombre||""); if(n===null)return; d.nombre=(n.trim()||d.nombre); d.updatedAt=Date.now(); uniDiagPersist(); if(uniCurId===id&&$("uniDiagNombre"))$("uniDiagNombre").value=d.nombre; uniDiagList(); }
 function uniBorrar(id){ const d=uniDiagrams.find(x=>x.id===id); if(!d)return; if(!confirm("¿Borrar el diagrama \""+(d.nombre||"")+"\"?"))return; uniDiagrams=uniDiagrams.filter(x=>x.id!==id); if(uniCurId===id)uniCurId=null; uniDiagPersist(); uniDiagList(); }
 function uniDiagList(){
+  uniDiagEstadoRender();
   const box=$("uniDiagList"); if(!box)return;
   const cnt=$("uniDiagCount"); if(cnt) cnt.textContent=uniDiagrams.length?`(${uniDiagrams.length})`:"";
   if(!uniDiagrams.length){ box.innerHTML=`<div style="font-size:10.5px;color:var(--muted);padding:4px 0">Sin diagramas guardados.</div>`; return; }
@@ -9711,6 +9867,7 @@ function uniDiagList(){
     <button type="button" class="btn ghost sm" style="font-size:10px;padding:2px 5px" onclick="uniRenombrar('${d.id}')" title="Renombrar">✎</button>
     <button type="button" class="btn ghost sm admin-only" style="font-size:10px;padding:2px 5px;color:#c0392b" onclick="uniBorrar('${d.id}')" title="Borrar">✕</button>
   </div>`).join("");
+  uniDiagEstadoRender();
 }
 
 /* ==================== TRÁMITES ==================== */
@@ -9752,6 +9909,7 @@ function tramFillClientes(){
   const ord=[...clientes].sort((a,b)=>tramClienteNombre(a).localeCompare(tramClienteNombre(b),'es'));
   sel.innerHTML=`<option value="">— Elige cliente —</option>`+ord.map(c=>`<option value="${c.id}">${esc(tramClienteNombre(c))}${c.code?` · ${esc(c.code)}`:""}</option>`).join("");
   if(prev) sel.value=prev;
+  if(typeof cliCboSync==="function") cliCboSync('tram');
   tramFillCotis();
 }
 function tramFillCotis(){
@@ -9918,16 +10076,22 @@ function tramExpListRender(){
   box.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">`+list.map(t=>{
     const c=clientes.find(x=>x.id===t.clienteId);
     const cot=cotizaciones.find(x=>x.id===t.cotId);
-    const enProceso=pend.includes(t.id);
+    const terminado=!!t.terminado;
+    const enProceso=pend.includes(t.id) && !terminado;
+    const badge = terminado
+      ? '<span style="font-size:9.5px;font-weight:800;color:#1a7a4c;background:#eafaf1;border:1px solid #a6e2c1;border-radius:20px;padding:1px 7px;margin-left:4px">✓ LISTO</span>'
+      : (enProceso ? '<span style="font-size:9.5px;font-weight:800;color:#b8860b;background:#fff7e6;border:1px solid #f0d089;border-radius:20px;padding:1px 7px;margin-left:4px">⏳ PENDIENTE</span>' : '');
+    const btnClass = enProceso ? 'primary' : 'ghost';
+    const btnLabel = terminado ? '📄 Ver / regenerar Word' : (enProceso ? '📄 Continuar expediente' : '📄 Armar expediente (Word)');
     return `<div class="card" style="padding:13px 15px;display:flex;flex-direction:column;gap:8px">
       <div style="display:flex;align-items:flex-start;gap:8px">
         <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:800;color:var(--navy)">${esc(tramClienteNombre(c))} ${enProceso?'<span style="font-size:9.5px;font-weight:800;color:#b8860b;background:#fff7e6;border:1px solid #f0d089;border-radius:20px;padding:1px 7px;margin-left:4px">⏳ PENDIENTE</span>':''}</div>
+          <div style="font-size:14px;font-weight:800;color:var(--navy)">${esc(tramClienteNombre(c))} ${badge}</div>
           <div style="font-size:11px;color:var(--muted)">${esc(t.tipo||"Trámite")}${cot?` · ${esc(cot.numero||"")}`:""}</div>
         </div>
         <button type="button" class="btn ghost sm admin-only" style="font-size:11px;padding:3px 7px;color:#c0392b;flex:0 0 auto" title="Borrar expediente" onclick="expBorrar('${t.id}')">🗑</button>
       </div>
-      <button type="button" class="btn ${enProceso?'primary':'ghost'} sm" style="font-size:12px" onclick="tramExpOpen('${t.id}')">${enProceso?'📄 Continuar expediente':'📄 Armar expediente (Word)'}</button>
+      <button type="button" class="btn ${btnClass} sm" style="font-size:12px" onclick="tramExpOpen('${t.id}')">${btnLabel}</button>
     </div>`;
   }).join("")+`</div>`;
 }
@@ -10586,7 +10750,10 @@ async function tramExpGenerar(){
     const c=clientes.find(x=>x.id===_tramExp.clienteId);
     const nom="Expediente "+((c?tramClienteNombre(c):"tramite").replace(/[\\/:*?"<>|]/g,"-"));
     const u=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=u; a.download=nom+".docx"; a.click(); setTimeout(()=>URL.revokeObjectURL(u),6000);
-    toast("Expediente Word generado ✓");
+    // Marcar expediente como terminado (conserva las imágenes del draft para poder regenerar)
+    try{ const ex=(typeof expedientes!=="undefined"?expedientes:[]).find(x=>x.id===_tramExp.expId); if(ex){ ex.terminado=true; ex.terminadoAt=Date.now(); ex.updatedAt=Date.now(); expSave(); } }catch(e){}
+    if(typeof tramExpListRender==="function") tramExpListRender();
+    toast("Expediente Word generado ✓ — marcado como LISTO");
   }catch(e){ toast("No se pudo generar: "+((e&&e.message)||e),true); }
   finally{ if(btn){ btn.disabled=false; btn.textContent=old; } }
 }
@@ -10707,6 +10874,7 @@ function archSave(){try{localStorage.setItem(ARCHSTORE,JSON.stringify(archivos))
 function archClienteNombre(c){ return (typeof tramClienteNombre==="function")?tramClienteNombre(c):((c&&c.nombre)||"(sin cliente)"); }
 function archInit(){
   archFillClientesSel($("archCliente"), true);
+  if(typeof archClienteSyncInput==="function") archClienteSyncInput();
   archFillCats($("archCategoria"), true);
   archFillProyectos($("archProyecto"), $("archCliente").value, true);
   // La zona de carga se muestra a quien puede subir (admin, "editar" o "ver"). "none" no.
@@ -10738,6 +10906,144 @@ function archOnClienteChange(){
   archFillProyectos($("archProyecto"), $("archCliente").value, true);
   archRender();
 }
+
+/* ── Buscador de cliente (combobox) — el <select id="archCliente"> oculto sigue guardando el valor ── */
+let _archCliActIdx=-1;
+function archCliMatches(){
+  const q=(($("archClienteSearch")&&$("archClienteSearch").value)||"").toLowerCase().trim();
+  const ord=[...clientes].sort((a,b)=>archClienteNombre(a).localeCompare(archClienteNombre(b),'es'));
+  if(!q) return ord;
+  return ord.filter(c=>{
+    const campos=[archClienteNombre(c), c.alias, c.empresa, c.code, c.nombre, c.apellido].filter(Boolean).join(" ").toLowerCase();
+    return campos.includes(q);
+  });
+}
+function archClienteFilter(){
+  const drop=$("archClienteDrop"); if(!drop) return;
+  const lista=archCliMatches();
+  const cur=($("archCliente")&&$("archCliente").value)||"";
+  _archCliActIdx=-1;
+  let html=`<div class="archCliOpt" data-id="" onclick="archClientePick('')" style="padding:8px 11px;font-size:13px;cursor:pointer;color:var(--muted);border-bottom:1px solid var(--line)">— Todos los clientes —</div>`;
+  if(!lista.length){ html+=`<div style="padding:10px 11px;font-size:12.5px;color:var(--muted)">Sin coincidencias</div>`; }
+  else html+=lista.map(c=>{
+    const sub=[c.alias,c.empresa,c.code].filter(Boolean).join(" · ");
+    const sel=(c.id===cur)?"background:var(--soft)":"";
+    return `<div class="archCliOpt" data-id="${c.id}" onclick="archClientePick('${c.id}')" style="padding:8px 11px;font-size:13px;cursor:pointer;${sel}">
+      <div style="font-weight:700;color:var(--navy)">${esc(archClienteNombre(c))}</div>
+      ${sub?`<div style="font-size:11px;color:var(--muted)">${esc(sub)}</div>`:""}</div>`;
+  }).join("");
+  drop.innerHTML=html; drop.style.display="block";
+}
+function archClientePick(id){
+  const sel=$("archCliente"); if(!sel) return;
+  sel.value=id;
+  archClienteSyncInput();
+  const drop=$("archClienteDrop"); if(drop) drop.style.display="none";
+  archOnClienteChange();
+}
+function archClienteClear(){
+  if($("archClienteSearch")) $("archClienteSearch").value="";
+  archClientePick("");
+}
+// Refleja en el input el cliente que tiene el <select> (útil tras selección programática)
+function archClienteSyncInput(){
+  const sel=$("archCliente"), inp=$("archClienteSearch"), clr=$("archClienteClearBtn"); if(!sel||!inp) return;
+  const c=clientes.find(x=>x.id===sel.value);
+  inp.value = c ? archClienteNombre(c) : "";
+  if(clr) clr.style.display = c ? "block" : "none";
+}
+function archClienteKey(e){
+  const drop=$("archClienteDrop"); if(!drop||drop.style.display==="none") return;
+  const opts=[...drop.querySelectorAll(".archCliOpt")]; if(!opts.length) return;
+  if(e.key==="ArrowDown"||e.key==="ArrowUp"){
+    e.preventDefault();
+    _archCliActIdx += (e.key==="ArrowDown"?1:-1);
+    if(_archCliActIdx<0) _archCliActIdx=opts.length-1;
+    if(_archCliActIdx>=opts.length) _archCliActIdx=0;
+    opts.forEach((o,i)=>o.style.outline = i===_archCliActIdx ? "2px solid var(--blue)" : "none");
+    opts[_archCliActIdx].scrollIntoView({block:"nearest"});
+  } else if(e.key==="Enter"){
+    e.preventDefault();
+    const o=opts[_archCliActIdx>=0?_archCliActIdx:0]; if(o) archClientePick(o.getAttribute("data-id")||"");
+  } else if(e.key==="Escape"){
+    drop.style.display="none";
+  }
+}
+// Cierra el desplegable al hacer clic fuera
+document.addEventListener("click",function(e){
+  const w=$("archClienteDrop"); if(!w) return;
+  const field=w.closest(".field");
+  if(field && !field.contains(e.target)){ w.style.display="none"; archClienteSyncInput(); }
+});
+
+/* ── Combobox de cliente REUTILIZABLE (Tools › Unifilar y Excel/formulario) ──
+   El <select> real queda oculto y sigue guardando el valor; esto solo agrega el buscador encima. */
+const CLI_CBO = {};
+function cliCboMatches(cfg){
+  const inp=$(cfg.search); const q=((inp&&inp.value)||"").toLowerCase().trim();
+  const ord=[...clientes].sort((a,b)=>tramClienteNombre(a).localeCompare(tramClienteNombre(b),'es'));
+  if(!q) return ord;
+  return ord.filter(c=>[tramClienteNombre(c),c.alias,c.empresa,c.code,c.nombre,c.apellido].filter(Boolean).join(" ").toLowerCase().includes(q));
+}
+function cliCboFilter(key){
+  const cfg=CLI_CBO[key]; if(!cfg) return;
+  const drop=$(cfg.drop); if(!drop) return;
+  const lista=cliCboMatches(cfg); const cur=(($(cfg.sel)||{}).value)||"";
+  cfg._act=-1;
+  let html="";
+  if(!lista.length){ html=`<div style="padding:10px 11px;font-size:12.5px;color:var(--muted)">Sin coincidencias</div>`; }
+  else html=lista.map(c=>{
+    const sub=[c.alias,c.empresa,c.code].filter(Boolean).join(" · ");
+    const sel=(c.id===cur)?"background:var(--soft)":"";
+    return `<div class="cliCboOpt" data-id="${c.id}" onclick="cliCboPick('${key}','${c.id}')" style="padding:8px 11px;font-size:13px;cursor:pointer;${sel}">
+      <div style="font-weight:700;color:var(--navy)">${esc(tramClienteNombre(c))}</div>
+      ${sub?`<div style="font-size:11px;color:var(--muted)">${esc(sub)}</div>`:""}</div>`;
+  }).join("");
+  drop.innerHTML=html; drop.style.display="block";
+}
+function cliCboPick(key,id){
+  const cfg=CLI_CBO[key]; if(!cfg) return;
+  const sel=$(cfg.sel); if(sel) sel.value=id;
+  cliCboSync(key);
+  const drop=$(cfg.drop); if(drop) drop.style.display="none";
+  if(typeof cfg.onChange==="function") cfg.onChange();
+}
+function cliCboClear(key){
+  const cfg=CLI_CBO[key]; if(!cfg) return;
+  if($(cfg.search)) $(cfg.search).value="";
+  cliCboPick(key,"");
+}
+// Refleja en el input el cliente que tiene el <select> (tras selección programática)
+function cliCboSync(key){
+  const cfg=CLI_CBO[key]; if(!cfg) return;
+  const sel=$(cfg.sel), inp=$(cfg.search), clr=$(cfg.clear); if(!sel||!inp) return;
+  const c=clientes.find(x=>x.id===sel.value);
+  inp.value = c ? tramClienteNombre(c) : "";
+  if(clr) clr.style.display = c ? "block" : "none";
+}
+function cliCboKey(key,e){
+  const cfg=CLI_CBO[key]; if(!cfg) return;
+  const drop=$(cfg.drop); if(!drop||drop.style.display==="none") return;
+  const opts=[...drop.querySelectorAll(".cliCboOpt")]; if(!opts.length) return;
+  if(e.key==="ArrowDown"||e.key==="ArrowUp"){
+    e.preventDefault();
+    cfg._act=(cfg._act==null?-1:cfg._act)+(e.key==="ArrowDown"?1:-1);
+    if(cfg._act<0)cfg._act=opts.length-1; if(cfg._act>=opts.length)cfg._act=0;
+    opts.forEach((o,i)=>o.style.outline=i===cfg._act?"2px solid var(--blue)":"none");
+    opts[cfg._act].scrollIntoView({block:"nearest"});
+  } else if(e.key==="Enter"){
+    e.preventDefault(); const o=opts[cfg._act>=0?cfg._act:0]; if(o) cliCboPick(key,o.getAttribute("data-id")||"");
+  } else if(e.key==="Escape"){ drop.style.display="none"; }
+}
+CLI_CBO.uni  = {search:"uniClienteSearch",  drop:"uniClienteDrop",  clear:"uniClienteClearBtn",  sel:"uniCliente",  onChange:()=>{ if(typeof uniClienteChange==="function") uniClienteChange(); }};
+CLI_CBO.tram = {search:"tramClienteSearch", drop:"tramClienteDrop", clear:"tramClienteClearBtn", sel:"tramCliente", onChange:()=>{ if(typeof tramFillCotis==="function") tramFillCotis(); }};
+document.addEventListener("click",function(e){
+  Object.keys(CLI_CBO).forEach(key=>{
+    const cfg=CLI_CBO[key]; const w=$(cfg.drop); if(!w) return;
+    const field=w.closest(".field");
+    if(field && !field.contains(e.target)){ w.style.display="none"; cliCboSync(key); }
+  });
+});
 function archTriggerUpload(){
   if(!archPuedeSubir()){ toast("Tu usuario no tiene permiso para subir archivos.",true); return; }
   if(!$("archCliente").value){ toast("Elige primero un cliente arriba para subir sus archivos",true); return; }
@@ -11044,7 +11350,7 @@ async function archConvertirPDFa(id){
     }
     archSave(); archProgHide();
     // Llevar la vista a donde quedaron las imágenes (mismo cliente/proyecto/categoría del PDF)
-    if($("archCliente")){ $("archCliente").value=a.clienteId||""; archFillProyectos($("archProyecto"), a.clienteId, true); $("archProyecto").value=a.proyectoId||""; }
+    if($("archCliente")){ $("archCliente").value=a.clienteId||""; if(typeof archClienteSyncInput==="function") archClienteSyncInput(); archFillProyectos($("archProyecto"), a.clienteId, true); $("archProyecto").value=a.proyectoId||""; }
     if($("archCategoria")) $("archCategoria").value=a.categoria||"";
     if($("archBuscar")) $("archBuscar").value="";
     // Marcar y resaltar las imágenes nuevas
@@ -11282,10 +11588,10 @@ function archCatDelete(name){
 }
 </script>
 
+<script>
 /* ---- Apagar el autocompletado del navegador en todos los campos, menos los que ya
    definen autocomplete (p.ej. el login usuario/contraseña). Cubre también los campos
    que se crean dinámicamente. Evita que el menú de "datos guardados" tape el campo. ---- */
-<script>
 (function(){
   function noFill(el){
     try{
